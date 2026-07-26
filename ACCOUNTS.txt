@@ -1,0 +1,12 @@
+SoloDM — accounts & services
+
+Google AI Studio (Gemini API)
+  URL: https://aistudio.google.com/
+  Username/email: [fill in]
+  Used for: DM turn loop (lib/dm), API key stored in .env.local (not committed)
+  Note: free tier, subject to per-minute/per-day rate limits (see README).
+
+Passwords/API keys are not stored in this file — they live in your password manager
+(and, for this project's API key, in .env.local, which is gitignored).
+
+No other external services are used by this project (local-only, single-user, no hosting/deployment).
