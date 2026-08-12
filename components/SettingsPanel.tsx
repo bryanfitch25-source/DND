@@ -42,12 +42,23 @@ export default function SettingsPanel({
   onNewCampaign: () => void;
 }) {
   const [name, setName] = useState(campaign.name);
+  const [model, setModel] = useState(campaign.model || "");
   const [savingName, setSavingName] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [nameSaveState, setNameSaveState] = useTransientState();
   const [modelSaveState, setModelSaveState] = useTransientState();
+
+  // This panel now stays mounted permanently (see app/page.tsx) so tab
+  // switches don't wipe an in-progress edit here -- but that means it also
+  // won't naturally re-init when the underlying campaign actually changes
+  // (e.g. "Start a New Campaign"). Resync only on campaign.id changing, so
+  // an in-progress edit to the *current* campaign's name is never clobbered.
+  useEffect(() => {
+    setName(campaign.name);
+    setModel(campaign.model || "");
+  }, [campaign.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function saveName() {
     setSavingName(true);
@@ -101,12 +112,14 @@ export default function SettingsPanel({
           you want richer, more consistent narration and don't mind paying more per turn.
         </p>
         <select
-          defaultValue={campaign.model || ""}
+          value={model}
           disabled={savingModel}
           onChange={async (e) => {
+            const next = e.target.value;
+            setModel(next);
             setSavingModel(true);
             try {
-              const ok = await onModelChange(e.target.value || null);
+              const ok = await onModelChange(next || null);
               setModelSaveState(ok ? "saved" : "error");
             } finally {
               setSavingModel(false);

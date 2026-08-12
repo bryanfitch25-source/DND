@@ -311,48 +311,56 @@ export default function Home() {
           <CharacterSheet character={character} inventory={inventory} />
         </aside>
 
-        {/* Center: view content */}
-        <section className="flex flex-col overflow-hidden">
-          {view === "story" && (
-            <>
-              {activeEncounter && (
-                <div className="px-3 md:px-6 pt-3 md:pt-4">
-                  <CombatView encounter={activeEncounter} combatants={combatants} character={character} />
-                </div>
-              )}
-              {levelUpDiff && (
-                <div className="px-3 md:px-6 pt-3">
-                  <div className="rounded-lg border border-scarlight/40 bg-scarlight-dim/20 px-3 py-2 text-xs text-parchment/90 shadow-glow">
-                    {levelUpDiff}
-                  </div>
-                </div>
-              )}
-              <div className="flex-1 overflow-hidden">
-                <NarrativePanel
-                  entries={entries}
-                  onSubmit={async (input) => (await handleSubmit(input)) !== null}
-                  isLoading={isLoading}
-                  defeatOccurred={defeatOccurred}
-                  characterExists={!!character}
-                  inCombat={!!activeEncounter}
-                  error={error}
-                  summary={summary}
-                  inputRef={inputRef}
-                />
+        {/* Center: view content. All four panels stay mounted permanently
+            and are shown/hidden with CSS rather than conditional rendering,
+            so switching tabs never silently discards in-progress state --
+            an unsent draft message, an unsaved campaign-name edit, a
+            Journal/Atlas search query, all survive a trip to another tab. */}
+        <section className="flex flex-col overflow-hidden relative">
+          <div className={view === "story" ? "flex flex-col flex-1 overflow-hidden" : "hidden"}>
+            {activeEncounter && (
+              <div className="px-3 md:px-6 pt-3 md:pt-4">
+                <CombatView encounter={activeEncounter} combatants={combatants} character={character} />
               </div>
-            </>
-          )}
-          {view === "journal" && <JournalPanel entries={entries} summary={summary} />}
-          {view === "map" && <WorldAtlas worldFacts={worldFacts} />}
-          {view === "settings" && state && (
-            <SettingsPanel
-              campaign={state.campaign}
-              onRename={handleRename}
-              onModelChange={handleModelChange}
-              onForceSummarize={handleForceSummarize}
-              onNewCampaign={handleNewCampaign}
-            />
-          )}
+            )}
+            {levelUpDiff && (
+              <div className="px-3 md:px-6 pt-3">
+                <div className="rounded-lg border border-scarlight/40 bg-scarlight-dim/20 px-3 py-2 text-xs text-parchment/90 shadow-glow">
+                  {levelUpDiff}
+                </div>
+              </div>
+            )}
+            <div className="flex-1 overflow-hidden">
+              <NarrativePanel
+                entries={entries}
+                onSubmit={async (input) => (await handleSubmit(input)) !== null}
+                isLoading={isLoading}
+                defeatOccurred={defeatOccurred}
+                characterExists={!!character}
+                inCombat={!!activeEncounter}
+                error={error}
+                summary={summary}
+                inputRef={inputRef}
+              />
+            </div>
+          </div>
+          <div className={view === "journal" ? "flex-1 overflow-hidden" : "hidden"}>
+            <JournalPanel entries={entries} summary={summary} />
+          </div>
+          <div className={view === "map" ? "flex-1 overflow-hidden" : "hidden"}>
+            <WorldAtlas worldFacts={worldFacts} />
+          </div>
+          <div className={view === "settings" ? "flex-1 overflow-hidden" : "hidden"}>
+            {state && (
+              <SettingsPanel
+                campaign={state.campaign}
+                onRename={handleRename}
+                onModelChange={handleModelChange}
+                onForceSummarize={handleForceSummarize}
+                onNewCampaign={handleNewCampaign}
+              />
+            )}
+          </div>
         </section>
 
         {/* Right: quests, companions, roll history (desktop static, mobile drawer) */}
