@@ -1,35 +1,41 @@
-import type { Content } from "@google/genai";
+import type Anthropic from "@anthropic-ai/sdk";
 import * as q from "../db/queries";
-import { MAX_NARRATIVE_ENTRIES_IN_CONTEXT } from "../config";
 
 /**
- * Build the `contents` array for the DM turn: the session's narrative log so
- * far, verbatim, followed by the new player input. A oneshot (~2-4 hours)
- * comfortably fits in context in full, so there's no summarization step --
- * MAX_NARRATIVE_ENTRIES_IN_CONTEXT is just a defensive cap for an unusually
- * long session. Gemini's chat format uses role "user" / "model" content
- * turns (no separate "system" role — that goes in systemInstruction instead).
+ * Build the `messages` array for a DM turn: the rolling campaign summary
+ * (if any) plus any narrative rows not yet folded into it, presented as a
+ * synthetic context turn, followed by the new player input. See
+ * lib/dm/summarize.ts for how the summary stays bounded across a
+ * long-running, open-ended campaign.
  */
-export function buildMessages(campaignId: number, playerInput: string): Content[] {
-  const messages: Content[] = [];
+export async function buildMessages(campaignId: number, playerInput: string): Promise<Anthropic.MessageParam[]> {
+  const messages: Anthropic.MessageParam[] = [];
 
-  const history = q.getRecentNarrative(campaignId, MAX_NARRATIVE_ENTRIES_IN_CONTEXT);
+  const { summary, through_row_id } = await q.getCampaignSummary(campaignId);
+  const recent = await q.getNarrativeAfter(campaignId, through_row_id);
 
-  if (history.length > 0) {
-    let intro = `[SESSION SO FAR]\n`;
-    for (const entry of history) {
-      intro += `${entry.role === "player" ? "PLAYER" : "DM"} (turn ${entry.turn_number}): ${entry.content}\n\n`;
+  if (summary || recent.length > 0) {
+    let intro = "";
+    if (summary) {
+      intro += `[CAMPAIGN SO FAR — SUMMARY]\n${summary}\n[END SUMMARY]\n\n`;
     }
-    intro += `[END SESSION SO FAR]\n\nThis is context only — do not respond to it directly. Respond to the player's new input below.`;
+    if (recent.length > 0) {
+      intro += `[RECENT TRANSCRIPT]\n`;
+      for (const entry of recent) {
+        intro += `${entry.role === "player" ? "PLAYER" : "DM"} (turn ${entry.turn_number}): ${entry.content}\n\n`;
+      }
+      intro += `[END RECENT TRANSCRIPT]\n\n`;
+    }
+    intro += `This is context only — do not respond to it directly. Respond to the player's new input below.`;
 
-    messages.push({ role: "user", parts: [{ text: intro }] });
+    messages.push({ role: "user", content: intro });
     messages.push({
-      role: "model",
-      parts: [{ text: "Understood, I have the session so far. Ready for the player's next action." }],
+      role: "assistant",
+      content: "Understood, I have the campaign context so far. Ready for the player's next action.",
     });
   }
 
-  messages.push({ role: "user", parts: [{ text: playerInput }] });
+  messages.push({ role: "user", content: playerInput });
 
   return messages;
 }

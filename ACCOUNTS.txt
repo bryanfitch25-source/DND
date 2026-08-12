@@ -1,12 +1,25 @@
 SoloDM — accounts & services
 
-Google AI Studio (Gemini API)
-  URL: https://aistudio.google.com/
+Anthropic Console (Claude API)
+  URL: https://console.anthropic.com/
   Username/email: [fill in]
-  Used for: DM turn loop (lib/dm), API key stored in .env.local (not committed)
-  Note: free tier, subject to per-minute/per-day rate limits (see README).
+  Used for: DM turn loop and rolling summarization (lib/dm), API key stored as ANTHROPIC_API_KEY
+
+Supabase (Postgres database)
+  URL: https://supabase.com/dashboard
+  Project: solodm (org: ameiaieqcfrtrzriwkir)
+  Used for: all persistent game state (campaigns, characters, narrative log, etc.) via DATABASE_URL.
+  Note: this Supabase org's free tier caps at 2 active projects; the "Thymebook" project was paused
+  to make room for this one -- resume it from the Supabase dashboard if you need it again.
+
+Vercel (hosting)
+  URL: https://vercel.com/dashboard
+  Used for: hosting the deployed app so it's reachable from anywhere, not just your home network.
+
+GitHub
+  URL: https://github.com/bryanfitch25-source/DND
+  Used for: source control; Vercel deploys automatically from this repo.
 
 Passwords/API keys are not stored in this file — they live in your password manager
-(and, for this project's API key, in .env.local, which is gitignored).
-
-No other external services are used by this project (local-only, single-user, no hosting/deployment).
+(and, for this project's secrets, in Vercel's environment variables / your local .env.local,
+both gitignored).

@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI, type Content, type Part } from "@google/genai";
-import { GEMINI_MODEL, MAX_OUTPUT_TOKENS, MAX_TOOL_ITERATIONS } from "@/lib/config";
+import Anthropic from "@anthropic-ai/sdk";
+import { CLAUDE_MODEL, MAX_OUTPUT_TOKENS, MAX_TOOL_ITERATIONS } from "@/lib/config";
 import { getPrimaryCampaignId } from "@/lib/db";
 import * as q from "@/lib/db/queries";
 import { toolDefinitions } from "@/lib/tools/definitions";
 import { executeTool } from "@/lib/tools/execute";
 import { buildSystemPrompt } from "@/lib/dm/systemPrompt";
 import { buildMessages } from "@/lib/dm/context";
+import { summarizeIfNeeded } from "@/lib/dm/summarize";
 import { getFullState } from "@/lib/dm/state";
-import { DEATH_TAG, SESSION_COMPLETE_TAG } from "@/lib/dm/tags";
+import { DEFEAT_TAG } from "@/lib/dm/tags";
 import type { TurnResponse } from "@/types";
+
+export const runtime = "nodejs";
+// A DM turn can involve several tool-calling round-trips (character
+// creation measured ~55s locally). 60s is the max Vercel allows on the
+// Hobby plan; if turns start timing out, trim MAX_TOOL_ITERATIONS in
+// lib/config.ts rather than raising this past what your plan allows.
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   let body: { input?: string };
@@ -24,83 +32,73 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing 'input'" }, { status: 400 });
   }
 
-  const campaignId = getPrimaryCampaignId();
-  const campaignBefore = q.getCampaign(campaignId);
-  if (campaignBefore.status === "completed") {
-    // Session already reached its ending -- don't spend a model call (and
-    // free-tier quota) on a turn that can't go anywhere.
-    const state = getFullState(
-      "This session has already reached its ending. Start a new oneshot to keep playing."
-    );
-    return NextResponse.json({ ...state, awaitingDeathDecision: false, sessionComplete: true });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "GEMINI_API_KEY is not set. Add it to .env.local and restart the dev server." },
+      { error: "ANTHROPIC_API_KEY is not set. Add it to your environment and redeploy." },
       { status: 500 }
     );
   }
 
-  const client = new GoogleGenAI({ apiKey });
+  const campaignId = await getPrimaryCampaignId();
+  const client = new Anthropic({ apiKey });
 
   try {
-    const turnNumber = q.incrementTurnNumber(campaignId);
+    // Fold older narrative into the rolling summary before building context,
+    // so a long-running campaign's context stays bounded (see lib/dm/summarize.ts).
+    await summarizeIfNeeded(campaignId, apiKey);
 
-    q.appendNarrative(campaignId, turnNumber, "player", playerInput);
+    const turnNumber = await q.incrementTurnNumber(campaignId);
 
-    const character = q.getCharacterByCampaign(campaignId);
-    const campaign = q.getCampaign(campaignId);
+    await q.appendNarrative(campaignId, turnNumber, "player", playerInput);
 
-    const systemInstruction = buildSystemPrompt({ campaign, character });
-    const contents: Content[] = buildMessages(campaignId, playerInput);
+    const character = await q.getCharacterByCampaign(campaignId);
+    const campaign = await q.getCampaign(campaignId);
+
+    const system = buildSystemPrompt({ campaign, character });
+    const messages: Anthropic.MessageParam[] = await buildMessages(campaignId, playerInput);
 
     let characterId = character ? character.id : null;
     let finalText = "";
     let iterations = 0;
+    const model = campaign.model || CLAUDE_MODEL;
 
     while (iterations < MAX_TOOL_ITERATIONS) {
       iterations++;
 
-      const response = await client.models.generateContent({
-        model: GEMINI_MODEL,
-        contents,
-        config: {
-          systemInstruction,
-          tools: [{ functionDeclarations: toolDefinitions }],
-          maxOutputTokens: MAX_OUTPUT_TOKENS,
-        },
+      const response = await client.messages.create({
+        model,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        system,
+        tools: toolDefinitions as Anthropic.Tool[],
+        messages,
       });
 
-      const candidate = response.candidates?.[0];
-      const modelContent = candidate?.content;
+      // Echo the model's turn back into the conversation before responding
+      // to it, exactly as Claude's tool-use loop expects.
+      messages.push({ role: "assistant", content: response.content });
 
-      if (!modelContent) {
-        // Blocked (safety) or otherwise empty response — surface what we can and stop.
-        const reason = candidate?.finishReason || response.promptFeedback?.blockReason || "unknown";
-        finalText = finalText || `(The DM's response was blocked or empty: ${reason}. Try rephrasing your action.)`;
-        break;
-      }
-
-      // Echo the model's turn (including any functionCall parts) back into
-      // the conversation before responding to it, exactly as Gemini expects.
-      contents.push({ role: "model", parts: modelContent.parts || [] });
-
-      const textFromResponse = (response.text || "").trim();
+      const textFromResponse = response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as Anthropic.TextBlock).text)
+        .join("\n")
+        .trim();
       if (textFromResponse) {
         finalText = textFromResponse;
       }
 
-      const functionCalls = response.functionCalls;
-      if (!functionCalls || functionCalls.length === 0) {
+      if (response.stop_reason !== "tool_use") {
         break;
       }
 
-      const responseParts: Part[] = [];
-      for (const call of functionCalls) {
-        const name = call.name || "";
-        const result = executeTool(name, call.args || {}, {
+      const toolUseBlocks = response.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+      );
+      if (toolUseBlocks.length === 0) break;
+
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      for (const block of toolUseBlocks) {
+        const result = await executeTool(block.name, (block.input as Record<string, unknown>) || {}, {
           campaignId,
           characterId,
           turnNumber,
@@ -108,44 +106,35 @@ export async function POST(req: Request) {
         if (result.createdCharacterId) {
           characterId = result.createdCharacterId;
         }
-        responseParts.push({
-          functionResponse: {
-            name,
-            response: result.isError ? { error: result.content } : { output: result.content },
-          },
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: result.content,
+          is_error: result.isError,
         });
       }
 
-      contents.push({ role: "user", parts: responseParts });
+      messages.push({ role: "user", content: toolResults });
     }
 
-    let awaitingDeathDecision = false;
-    let sessionComplete = false;
+    let defeatOccurred = false;
     let narrative = finalText.trim();
 
-    if (narrative.includes(SESSION_COMPLETE_TAG)) {
-      sessionComplete = true;
-      narrative = narrative.replace(SESSION_COMPLETE_TAG, "").trim();
-    } else if (narrative.includes(DEATH_TAG)) {
-      awaitingDeathDecision = true;
-      narrative = narrative.replace(DEATH_TAG, "").trim();
+    if (narrative.includes(DEFEAT_TAG)) {
+      defeatOccurred = true;
+      narrative = narrative.replace(DEFEAT_TAG, "").trim();
     }
 
     if (!narrative) {
       narrative = "(The DM paused without a response — try describing your action again.)";
     }
 
-    q.appendNarrative(campaignId, turnNumber, "dm", narrative);
+    await q.appendNarrative(campaignId, turnNumber, "dm", narrative);
 
-    if (sessionComplete) {
-      q.updateCampaign(campaignId, { status: "completed" });
-    }
-
-    const state = getFullState(narrative);
+    const state = await getFullState(narrative);
     const responseBody: TurnResponse = {
       ...state,
-      awaitingDeathDecision,
-      sessionComplete,
+      defeatOccurred,
     };
 
     return NextResponse.json(responseBody);

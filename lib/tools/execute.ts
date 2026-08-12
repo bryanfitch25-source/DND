@@ -1,6 +1,7 @@
 import { rollDice } from "../dice";
 import * as q from "../db/queries";
 import { WORLD_FACT_SEARCH_LIMIT } from "../config";
+import type { Character } from "@/types";
 
 export interface ToolContext {
   campaignId: number;
@@ -15,9 +16,9 @@ export interface ToolExecutionResult {
   createdCharacterId?: number;
 }
 
-function serializeCharacter(character: ReturnType<typeof q.getCharacterByCampaign>) {
+async function serializeCharacter(character: Character | null) {
   if (!character) return null;
-  const inventory = q.getInventory(character.id);
+  const inventory = await q.getInventory(character.id);
   return {
     ...character,
     saving_throw_proficiencies: safeParse(character.saving_throw_proficiencies, []),
@@ -39,10 +40,10 @@ function safeParse<T>(json: string, fallback: T): T {
 }
 
 /**
- * spell_slots is declared to the model as a JSON-encoded string (Gemini's
- * function-calling schema has no freeform/additionalProperties object type),
- * so normalize whatever comes back into a valid JSON string we can store
- * as-is. Falls back to "{}" if the model sends malformed JSON.
+ * spell_slots is declared to the model as a JSON-encoded string field
+ * rather than a freeform nested object, so normalize whatever comes back
+ * into a valid JSON string we can store as-is. Falls back to "{}" if the
+ * model sends malformed JSON.
  */
 function normalizeJsonStringField(value: unknown): string {
   if (typeof value === "string") {
@@ -59,11 +60,11 @@ function normalizeJsonStringField(value: unknown): string {
   return "{}";
 }
 
-export function executeTool(
+export async function executeTool(
   name: string,
   input: Record<string, unknown>,
   ctx: ToolContext
-): ToolExecutionResult {
+): Promise<ToolExecutionResult> {
   try {
     switch (name) {
       case "create_character": {
@@ -74,15 +75,15 @@ export function executeTool(
         }
         if (fields.spell_slots !== undefined) fields.spell_slots = normalizeJsonStringField(fields.spell_slots);
         if (fields.hp_current === undefined) fields.hp_current = fields.hp_max;
-        const character = q.createCharacter(ctx.campaignId, fields);
+        const character = await q.createCharacter(ctx.campaignId, fields);
         if (Array.isArray(starting_inventory)) {
           for (const item of starting_inventory) {
-            if (item?.name) q.addInventoryItem(ctx.campaignId, character.id, item);
+            if (item?.name) await q.addInventoryItem(ctx.campaignId, character.id, item);
           }
         }
-        q.updateCampaign(ctx.campaignId, { status: "active" });
+        await q.updateCampaign(ctx.campaignId, { status: "active" });
         return {
-          content: JSON.stringify(serializeCharacter(character)),
+          content: JSON.stringify(await serializeCharacter(character)),
           createdCharacterId: character.id,
         };
       }
@@ -91,8 +92,8 @@ export function executeTool(
         if (!ctx.characterId) {
           return { content: "No character exists yet. This campaign is still in character creation." };
         }
-        const character = q.getCharacterByCampaign(ctx.campaignId);
-        return { content: JSON.stringify(serializeCharacter(character)) };
+        const character = await q.getCharacterByCampaign(ctx.campaignId);
+        return { content: JSON.stringify(await serializeCharacter(character)) };
       }
 
       case "update_character": {
@@ -105,43 +106,43 @@ export function executeTool(
         }
         if (fields.spell_slots !== undefined) fields.spell_slots = normalizeJsonStringField(fields.spell_slots);
         if (fields.is_dead !== undefined) fields.is_dead = fields.is_dead ? 1 : 0;
-        const updated = q.updateCharacter(ctx.characterId, fields);
-        return { content: JSON.stringify(serializeCharacter(updated)) };
+        const updated = await q.updateCharacter(ctx.characterId, fields);
+        return { content: JSON.stringify(await serializeCharacter(updated)) };
       }
 
       case "add_inventory_item": {
         if (!ctx.characterId) {
           return { content: "No character exists yet; cannot add inventory.", isError: true };
         }
-        const item = q.addInventoryItem(ctx.campaignId, ctx.characterId, input as any);
+        const item = await q.addInventoryItem(ctx.campaignId, ctx.characterId, input as any);
         return { content: JSON.stringify(item) };
       }
 
       case "remove_inventory_item": {
         const itemId = Number(input.item_id);
         const quantity = input.quantity !== undefined ? Number(input.quantity) : undefined;
-        const result = q.removeInventoryItem(itemId, quantity);
+        const result = await q.removeInventoryItem(itemId, quantity);
         return { content: JSON.stringify(result) };
       }
 
       case "get_quest_log": {
-        const quests = q.getQuests(ctx.campaignId);
+        const quests = await q.getQuests(ctx.campaignId);
         return { content: JSON.stringify(quests) };
       }
 
       case "update_quest": {
-        const quest = q.addOrUpdateQuest(ctx.campaignId, input as any);
+        const quest = await q.addOrUpdateQuest(ctx.campaignId, input as any);
         return { content: JSON.stringify(quest) };
       }
 
       case "log_world_fact": {
-        const fact = q.logWorldFact(ctx.campaignId, input as any);
+        const fact = await q.logWorldFact(ctx.campaignId, input as any);
         return { content: JSON.stringify(fact) };
       }
 
       case "search_world_facts": {
         const query = String(input.query || "");
-        const facts = q.searchWorldFacts(ctx.campaignId, query, WORLD_FACT_SEARCH_LIMIT);
+        const facts = await q.searchWorldFacts(ctx.campaignId, query, WORLD_FACT_SEARCH_LIMIT);
         return { content: JSON.stringify(facts) };
       }
 
@@ -149,7 +150,7 @@ export function executeTool(
         const expression = String(input.expression || "");
         const purpose = input.purpose ? String(input.purpose) : "";
         const result = rollDice(expression);
-        const logged = q.logRoll(ctx.campaignId, ctx.turnNumber, {
+        const logged = await q.logRoll(ctx.campaignId, ctx.turnNumber, {
           expression: result.expression,
           breakdown: result.breakdown,
           total: result.total,
@@ -161,29 +162,45 @@ export function executeTool(
       case "start_combat": {
         const description = String(input.description || "");
         const participants = (input.participants as any[]) || [];
-        const { encounter, combatants } = q.startCombat(ctx.campaignId, description, participants);
+        const gridWidth = input.grid_width ? Number(input.grid_width) : 10;
+        const gridHeight = input.grid_height ? Number(input.grid_height) : 8;
+        const terrain = (input.terrain as any[]) || [];
+        const { encounter, combatants } = await q.startCombat(
+          ctx.campaignId,
+          description,
+          participants,
+          gridWidth,
+          gridHeight,
+          terrain
+        );
         return { content: JSON.stringify({ encounter, combatants }) };
       }
 
+      case "manage_companion": {
+        const companion = await q.upsertCompanion(ctx.campaignId, input as any);
+        return { content: JSON.stringify(companion) };
+      }
+
       case "update_combat_state": {
-        const encounter = q.getActiveEncounter(ctx.campaignId);
+        const encounter = await q.getActiveEncounter(ctx.campaignId);
         if (!encounter) {
           return { content: "No active combat encounter.", isError: true };
         }
-        const result = q.updateCombatState(encounter.id, {
+        const result = await q.updateCombatState(encounter.id, {
           round_number: input.round_number as number | undefined,
           current_turn_index: input.current_turn_index as number | undefined,
+          terrain: input.terrain as any,
           participantUpdates: input.participant_updates as any,
         });
         return { content: JSON.stringify(result) };
       }
 
       case "end_combat": {
-        const encounter = q.getActiveEncounter(ctx.campaignId);
+        const encounter = await q.getActiveEncounter(ctx.campaignId);
         if (!encounter) {
           return { content: "No active combat encounter to end." };
         }
-        q.endCombat(encounter.id);
+        await q.endCombat(encounter.id);
         return { content: "Combat ended." };
       }
 

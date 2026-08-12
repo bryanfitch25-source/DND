@@ -1,10 +1,11 @@
-// One row per oneshot session.
+// One row per open-ended campaign.
 export interface Campaign {
   id: number;
   name: string;
-  status: "character_creation" | "active" | "completed";
+  status: "character_creation" | "active";
   current_turn_number: number;
   setting_notes: string;
+  model: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -98,8 +99,31 @@ export interface CombatEncounter {
   round_number: number;
   current_turn_index: number;
   description: string;
+  grid_width: number;
+  grid_height: number;
+  terrain: string; // JSON array of {x,y,type}
   created_at: string;
   ended_at: string | null;
+}
+
+export interface TerrainMarker {
+  x: number;
+  y: number;
+  type: "wall" | "cover" | "difficult";
+}
+
+export interface Companion {
+  id: number;
+  campaign_id: number;
+  name: string;
+  description: string;
+  hp_current: number;
+  hp_max: number;
+  ac: number;
+  notes: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CombatParticipant {
@@ -114,7 +138,8 @@ export interface CombatParticipant {
   hp_max: number;
   ac: number;
   conditions: string;
-  position: string;
+  x: number;
+  y: number;
   notes: string;
   is_defeated: number;
 }
@@ -133,11 +158,10 @@ export interface RollLogEntry {
 // API response shape for the /api/turn endpoint.
 export interface TurnResponse {
   narrative: string;
-  awaitingDeathDecision: boolean;
-  /** True once this narrative resolves the oneshot -- the app should stop
-   * accepting further input and show the ending state. */
-  sessionComplete: boolean;
-  deathContext?: string;
+  /** True when this turn's beat was a defeat/setback (character dropped to
+   * 0 HP and failed death saves) -- this is a soft-fail game, so the story
+   * continues; the frontend just shows a brief "defeated" banner. */
+  defeatOccurred: boolean;
   campaign: Campaign;
   character: Character | null;
   inventory: InventoryItem[];
@@ -145,6 +169,10 @@ export interface TurnResponse {
   worldFacts: WorldFact[];
   activeEncounter: CombatEncounter | null;
   combatants: CombatParticipant[];
+  companions: Companion[];
   recentRolls: RollLogEntry[];
+  /** Rolling campaign summary text, if the campaign has run long enough to
+   * have one yet (see lib/dm/summarize.ts). Empty string if none. */
+  summary: string;
   error?: string;
 }

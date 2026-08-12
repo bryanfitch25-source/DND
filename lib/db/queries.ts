@@ -1,9 +1,10 @@
-import { getDb } from "./index";
+import { getSql, ensureMigrated } from "./index";
 import type {
   Campaign,
   Character,
   CombatEncounter,
   CombatParticipant,
+  Companion,
   InventoryItem,
   NarrativeLogEntry,
   Quest,
@@ -11,87 +12,83 @@ import type {
   WorldFact,
 } from "@/types";
 
-// ---------- Campaign (one row per oneshot session) ----------
-
-export function getCampaign(campaignId: number): Campaign {
-  const db = getDb();
-  return db.prepare("SELECT * FROM campaigns WHERE id = ?").get(campaignId) as unknown as Campaign;
+async function db() {
+  await ensureMigrated();
+  return getSql();
 }
 
-/** Start a brand-new oneshot. Its id is higher than any existing campaign,
+// ---------- Campaign (one row per open-ended campaign) ----------
+
+export async function getCampaign(campaignId: number): Promise<Campaign> {
+  const sql = await db();
+  const rows = await sql<Campaign[]>`SELECT * FROM campaigns WHERE id = ${campaignId}`;
+  return rows[0];
+}
+
+/** Start a brand-new campaign. Its id is higher than any existing campaign,
  * so it automatically becomes "current" (see getPrimaryCampaignId). */
-export function createCampaign(name = "New Oneshot"): Campaign {
-  const db = getDb();
-  const info = db
-    .prepare("INSERT INTO campaigns (name, status) VALUES (?, 'character_creation')")
-    .run(name);
-  return getCampaign(info.lastInsertRowid as number);
+export async function createCampaign(name = "New Campaign"): Promise<Campaign> {
+  const sql = await db();
+  const rows = await sql<Campaign[]>`
+    INSERT INTO campaigns (name, status) VALUES (${name}, 'character_creation') RETURNING *`;
+  return rows[0];
 }
 
-export function updateCampaign(campaignId: number, fields: Partial<Campaign>) {
-  const db = getDb();
+export async function updateCampaign(campaignId: number, fields: Partial<Campaign>): Promise<void> {
+  const sql = await db();
   const keys = Object.keys(fields).filter((k) => k !== "id" && k !== "campaign_id");
   if (keys.length === 0) return;
-  const setClause = keys.map((k) => `${k} = @${k}`).join(", ");
-  db.prepare(
-    `UPDATE campaigns SET ${setClause}, updated_at = datetime('now') WHERE id = @id`
-  ).run({ ...fields, id: campaignId });
+  const patch: Record<string, unknown> = {};
+  for (const k of keys) patch[k] = (fields as Record<string, unknown>)[k];
+  await sql`UPDATE campaigns SET ${sql(patch)}, updated_at = now()::text WHERE id = ${campaignId}`;
 }
 
-export function incrementTurnNumber(campaignId: number): number {
-  const db = getDb();
-  db.prepare(
-    "UPDATE campaigns SET current_turn_number = current_turn_number + 1, updated_at = datetime('now') WHERE id = ?"
-  ).run(campaignId);
-  return getCampaign(campaignId).current_turn_number;
+export async function incrementTurnNumber(campaignId: number): Promise<number> {
+  const sql = await db();
+  const rows = await sql<{ current_turn_number: number }[]>`
+    UPDATE campaigns SET current_turn_number = current_turn_number + 1, updated_at = now()::text
+    WHERE id = ${campaignId} RETURNING current_turn_number`;
+  return rows[0].current_turn_number;
 }
 
 // ---------- Characters ----------
 
-export function getCharacterByCampaign(campaignId: number): Character | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM characters WHERE campaign_id = ? ORDER BY id DESC LIMIT 1")
-    .get(campaignId) as unknown as Character | undefined;
-  return row || null;
+export async function getCharacterByCampaign(campaignId: number): Promise<Character | null> {
+  const sql = await db();
+  const rows = await sql<Character[]>`
+    SELECT * FROM characters WHERE campaign_id = ${campaignId} ORDER BY id DESC LIMIT 1`;
+  return rows[0] || null;
 }
 
-export function createCharacter(campaignId: number, fields: Partial<Character>): Character {
-  const db = getDb();
-  const cols = Object.keys(fields);
-  const placeholders = cols.map((c) => `@${c}`).join(", ");
-  const colNames = cols.join(", ");
-  const info = db
-    .prepare(
-      `INSERT INTO characters (campaign_id${cols.length ? ", " + colNames : ""})
-       VALUES (@campaign_id${cols.length ? ", " + placeholders : ""})`
-    )
-    .run({ campaign_id: campaignId, ...fields });
-  return db.prepare("SELECT * FROM characters WHERE id = ?").get(info.lastInsertRowid) as unknown as Character;
+export async function createCharacter(campaignId: number, fields: Partial<Character>): Promise<Character> {
+  const sql = await db();
+  const rows = await sql<Character[]>`
+    INSERT INTO characters ${sql({ campaign_id: campaignId, ...fields })} RETURNING *`;
+  return rows[0];
 }
 
-export function updateCharacter(characterId: number, fields: Record<string, unknown>): Character {
-  const db = getDb();
+export async function updateCharacter(
+  characterId: number,
+  fields: Record<string, unknown>
+): Promise<Character> {
+  const sql = await db();
   const keys = Object.keys(fields);
   if (keys.length > 0) {
-    const setClause = keys.map((k) => `${k} = @${k}`).join(", ");
-    db.prepare(
-      `UPDATE characters SET ${setClause}, updated_at = datetime('now') WHERE id = @id`
-    ).run({ ...fields, id: characterId });
+    await sql`UPDATE characters SET ${sql(fields)}, updated_at = now()::text WHERE id = ${characterId}`;
   }
-  return db.prepare("SELECT * FROM characters WHERE id = ?").get(characterId) as unknown as Character;
+  const rows = await sql<Character[]>`SELECT * FROM characters WHERE id = ${characterId}`;
+  return rows[0];
 }
 
 // ---------- Inventory ----------
 
-export function getInventory(characterId: number): InventoryItem[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM inventory_items WHERE character_id = ? ORDER BY id ASC")
-    .all(characterId) as unknown as InventoryItem[];
+export async function getInventory(characterId: number): Promise<InventoryItem[]> {
+  const sql = await db();
+  return sql<InventoryItem[]>`
+    SELECT * FROM inventory_items WHERE character_id = ${characterId} ORDER BY id ASC`;
 }
 
-export function addInventoryItem(
+export async function addInventoryItem(
   campaignId: number,
   characterId: number,
   item: {
@@ -102,54 +99,46 @@ export function addInventoryItem(
     equipped?: boolean;
     weight?: number;
   }
-): InventoryItem {
-  const db = getDb();
-  const info = db
-    .prepare(
-      `INSERT INTO inventory_items (campaign_id, character_id, name, description, category, quantity, equipped, weight)
-       VALUES (@campaign_id, @character_id, @name, @description, @category, @quantity, @equipped, @weight)`
-    )
-    .run({
-      campaign_id: campaignId,
-      character_id: characterId,
-      name: item.name,
-      description: item.description || "",
-      category: item.category || "gear",
-      quantity: item.quantity ?? 1,
-      equipped: item.equipped ? 1 : 0,
-      weight: item.weight ?? 0,
-    });
-  return db.prepare("SELECT * FROM inventory_items WHERE id = ?").get(info.lastInsertRowid) as unknown as InventoryItem;
+): Promise<InventoryItem> {
+  const sql = await db();
+  const rows = await sql<InventoryItem[]>`
+    INSERT INTO inventory_items (campaign_id, character_id, name, description, category, quantity, equipped, weight)
+    VALUES (
+      ${campaignId}, ${characterId}, ${item.name}, ${item.description || ""},
+      ${item.category || "gear"}, ${item.quantity ?? 1}, ${item.equipped ? 1 : 0}, ${item.weight ?? 0}
+    ) RETURNING *`;
+  return rows[0];
 }
 
-export function removeInventoryItem(itemId: number, quantity?: number): { removed: boolean; remainingQuantity: number } {
-  const db = getDb();
-  const row = db.prepare("SELECT * FROM inventory_items WHERE id = ?").get(itemId) as
-    | InventoryItem
-    | undefined;
+export async function removeInventoryItem(
+  itemId: number,
+  quantity?: number
+): Promise<{ removed: boolean; remainingQuantity: number }> {
+  const sql = await db();
+  const rows = await sql<InventoryItem[]>`SELECT * FROM inventory_items WHERE id = ${itemId}`;
+  const row = rows[0];
   if (!row) return { removed: false, remainingQuantity: 0 };
 
   const removeQty = quantity ?? row.quantity;
   if (removeQty >= row.quantity) {
-    db.prepare("DELETE FROM inventory_items WHERE id = ?").run(itemId);
+    await sql`DELETE FROM inventory_items WHERE id = ${itemId}`;
     return { removed: true, remainingQuantity: 0 };
   } else {
     const newQty = row.quantity - removeQty;
-    db.prepare("UPDATE inventory_items SET quantity = ? WHERE id = ?").run(newQty, itemId);
+    await sql`UPDATE inventory_items SET quantity = ${newQty} WHERE id = ${itemId}`;
     return { removed: false, remainingQuantity: newQty };
   }
 }
 
 // ---------- Quests ----------
 
-export function getQuests(campaignId: number): Quest[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM quests WHERE campaign_id = ? ORDER BY status ASC, updated_at DESC")
-    .all(campaignId) as unknown as Quest[];
+export async function getQuests(campaignId: number): Promise<Quest[]> {
+  const sql = await db();
+  return sql<Quest[]>`
+    SELECT * FROM quests WHERE campaign_id = ${campaignId} ORDER BY status ASC, updated_at DESC`;
 }
 
-export function addOrUpdateQuest(
+export async function addOrUpdateQuest(
   campaignId: number,
   quest: {
     id?: number;
@@ -158,162 +147,200 @@ export function addOrUpdateQuest(
     status?: string;
     category?: string;
   }
-): Quest {
-  const db = getDb();
+): Promise<Quest> {
+  const sql = await db();
   if (quest.id) {
-    const existing = db.prepare("SELECT * FROM quests WHERE id = ?").get(quest.id) as unknown as Quest | undefined;
+    const existingRows = await sql<Quest[]>`SELECT * FROM quests WHERE id = ${quest.id}`;
+    const existing = existingRows[0];
     if (existing) {
-      db.prepare(
-        `UPDATE quests SET title = @title, description = @description, status = @status, category = @category, updated_at = datetime('now')
-         WHERE id = @id`
-      ).run({
-        id: quest.id,
-        title: quest.title ?? existing.title,
-        description: quest.description ?? existing.description,
-        status: quest.status ?? existing.status,
-        category: quest.category ?? existing.category,
-      });
-      return db.prepare("SELECT * FROM quests WHERE id = ?").get(quest.id) as unknown as Quest;
+      const rows = await sql<Quest[]>`
+        UPDATE quests SET
+          title = ${quest.title ?? existing.title},
+          description = ${quest.description ?? existing.description},
+          status = ${quest.status ?? existing.status},
+          category = ${quest.category ?? existing.category},
+          updated_at = now()::text
+        WHERE id = ${quest.id} RETURNING *`;
+      return rows[0];
     }
   }
-  const info = db
-    .prepare(
-      `INSERT INTO quests (campaign_id, title, description, status, category)
-       VALUES (@campaign_id, @title, @description, @status, @category)`
-    )
-    .run({
-      campaign_id: campaignId,
-      title: quest.title,
-      description: quest.description || "",
-      status: quest.status || "active",
-      category: quest.category || "main",
-    });
-  return db.prepare("SELECT * FROM quests WHERE id = ?").get(info.lastInsertRowid) as unknown as Quest;
+  const rows = await sql<Quest[]>`
+    INSERT INTO quests (campaign_id, title, description, status, category)
+    VALUES (${campaignId}, ${quest.title}, ${quest.description || ""}, ${quest.status || "active"}, ${quest.category || "main"})
+    RETURNING *`;
+  return rows[0];
 }
 
 // ---------- World facts ----------
 
-export function logWorldFact(
+export async function logWorldFact(
   campaignId: number,
   fact: { category: string; title: string; content: string; tags?: string }
-): WorldFact {
-  const db = getDb();
-  const info = db
-    .prepare(
-      `INSERT INTO world_facts (campaign_id, category, title, content, tags)
-       VALUES (@campaign_id, @category, @title, @content, @tags)`
-    )
-    .run({
-      campaign_id: campaignId,
-      category: fact.category,
-      title: fact.title,
-      content: fact.content,
-      tags: fact.tags || "",
-    });
-  return db.prepare("SELECT * FROM world_facts WHERE id = ?").get(info.lastInsertRowid) as unknown as WorldFact;
+): Promise<WorldFact> {
+  const sql = await db();
+  const rows = await sql<WorldFact[]>`
+    INSERT INTO world_facts (campaign_id, category, title, content, tags)
+    VALUES (${campaignId}, ${fact.category}, ${fact.title}, ${fact.content}, ${fact.tags || ""})
+    RETURNING *`;
+  return rows[0];
 }
 
-export function searchWorldFacts(campaignId: number, query: string, limit = 8): WorldFact[] {
-  const db = getDb();
-  if (!query || !query.trim()) {
-    return db
-      .prepare("SELECT * FROM world_facts WHERE campaign_id = ? ORDER BY created_at DESC LIMIT ?")
-      .all(campaignId, limit) as unknown as WorldFact[];
+/** Plain ILIKE search over title/content/tags -- replaces the SQLite-era
+ * FTS5 virtual table, which has no direct Postgres equivalent needed at
+ * this scale (a single campaign's world facts is at most a few hundred rows). */
+export async function searchWorldFacts(campaignId: number, query: string, limit = 8): Promise<WorldFact[]> {
+  const sql = await db();
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return sql<WorldFact[]>`
+      SELECT * FROM world_facts WHERE campaign_id = ${campaignId} ORDER BY created_at DESC LIMIT ${limit}`;
   }
-  // Sanitize query into FTS5 MATCH-safe token soup (OR of quoted terms).
-  const terms = query
-    .split(/[^a-zA-Z0-9']+/)
-    .filter(Boolean)
-    .map((t) => `"${t.replace(/"/g, "")}"`)
-    .join(" OR ");
-
-  if (!terms) {
-    return db
-      .prepare("SELECT * FROM world_facts WHERE campaign_id = ? ORDER BY created_at DESC LIMIT ?")
-      .all(campaignId, limit) as unknown as WorldFact[];
-  }
-
-  try {
-    return db
-      .prepare(
-        `SELECT wf.* FROM world_facts_fts f
-         JOIN world_facts wf ON wf.id = f.rowid
-         WHERE f MATCH ? AND wf.campaign_id = ?
-         ORDER BY rank
-         LIMIT ?`
-      )
-      .all(terms, campaignId, limit) as unknown as WorldFact[];
-  } catch {
-    // Fall back to recency if the FTS query is malformed for any reason.
-    return db
-      .prepare("SELECT * FROM world_facts WHERE campaign_id = ? ORDER BY created_at DESC LIMIT ?")
-      .all(campaignId, limit) as unknown as WorldFact[];
-  }
+  const needle = `%${trimmed}%`;
+  return sql<WorldFact[]>`
+    SELECT * FROM world_facts
+    WHERE campaign_id = ${campaignId}
+      AND (title ILIKE ${needle} OR content ILIKE ${needle} OR tags ILIKE ${needle})
+    ORDER BY created_at DESC LIMIT ${limit}`;
 }
 
-export function getAllWorldFacts(campaignId: number): WorldFact[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM world_facts WHERE campaign_id = ? ORDER BY created_at DESC")
-    .all(campaignId) as unknown as WorldFact[];
+export async function getAllWorldFacts(campaignId: number): Promise<WorldFact[]> {
+  const sql = await db();
+  return sql<WorldFact[]>`
+    SELECT * FROM world_facts WHERE campaign_id = ${campaignId} ORDER BY created_at DESC`;
 }
 
 // ---------- Narrative log ----------
 
-export function appendNarrative(
+export async function appendNarrative(
   campaignId: number,
   turnNumber: number,
   role: "player" | "dm",
   content: string
-): NarrativeLogEntry {
-  const db = getDb();
-  const info = db
-    .prepare(
-      `INSERT INTO narrative_log (campaign_id, turn_number, role, content) VALUES (?, ?, ?, ?)`
-    )
-    .run(campaignId, turnNumber, role, content);
-  return db.prepare("SELECT * FROM narrative_log WHERE id = ?").get(info.lastInsertRowid) as unknown as NarrativeLogEntry;
+): Promise<NarrativeLogEntry> {
+  const sql = await db();
+  const rows = await sql<NarrativeLogEntry[]>`
+    INSERT INTO narrative_log (campaign_id, turn_number, role, content)
+    VALUES (${campaignId}, ${turnNumber}, ${role}, ${content}) RETURNING *`;
+  return rows[0];
 }
 
-/**
- * A oneshot's full narrative comfortably fits in context, so this is a
- * defensive cap rather than an active compression step -- see
- * MAX_NARRATIVE_ENTRIES_IN_CONTEXT in lib/config.ts. Returns the most
- * recent `limit` narrative_log rows in chronological order.
- */
-export function getRecentNarrative(campaignId: number, limit: number): NarrativeLogEntry[] {
-  const db = getDb();
-  const rows = db
-    .prepare(`SELECT * FROM narrative_log WHERE campaign_id = ? ORDER BY id DESC LIMIT ?`)
-    .all(campaignId, limit) as unknown as NarrativeLogEntry[];
+/** Returns the most recent `limit` narrative_log rows in chronological order. */
+export async function getRecentNarrative(campaignId: number, limit: number): Promise<NarrativeLogEntry[]> {
+  const sql = await db();
+  const rows = await sql<NarrativeLogEntry[]>`
+    SELECT * FROM narrative_log WHERE campaign_id = ${campaignId} ORDER BY id DESC LIMIT ${limit}`;
   return rows.reverse();
 }
 
-export function getAllNarrative(campaignId: number): NarrativeLogEntry[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM narrative_log WHERE campaign_id = ? ORDER BY id ASC")
-    .all(campaignId) as unknown as NarrativeLogEntry[];
+/** Narrative rows with id strictly greater than `afterRowId`, chronological. */
+export async function getNarrativeAfter(campaignId: number, afterRowId: number): Promise<NarrativeLogEntry[]> {
+  const sql = await db();
+  return sql<NarrativeLogEntry[]>`
+    SELECT * FROM narrative_log WHERE campaign_id = ${campaignId} AND id > ${afterRowId} ORDER BY id ASC`;
+}
+
+export async function getAllNarrative(campaignId: number): Promise<NarrativeLogEntry[]> {
+  const sql = await db();
+  return sql<NarrativeLogEntry[]>`
+    SELECT * FROM narrative_log WHERE campaign_id = ${campaignId} ORDER BY id ASC`;
+}
+
+// ---------- Rolling campaign summary (open-ended campaigns only) ----------
+
+export async function getCampaignSummary(
+  campaignId: number
+): Promise<{ summary: string; through_row_id: number }> {
+  const sql = await db();
+  const rows = await sql<{ summary: string; through_row_id: number }[]>`
+    SELECT summary, through_row_id FROM campaign_summary WHERE campaign_id = ${campaignId}`;
+  return rows[0] || { summary: "", through_row_id: 0 };
+}
+
+export async function upsertCampaignSummary(
+  campaignId: number,
+  summary: string,
+  throughRowId: number
+): Promise<void> {
+  const sql = await db();
+  await sql`
+    INSERT INTO campaign_summary (campaign_id, summary, through_row_id, updated_at)
+    VALUES (${campaignId}, ${summary}, ${throughRowId}, now()::text)
+    ON CONFLICT (campaign_id) DO UPDATE SET
+      summary = EXCLUDED.summary,
+      through_row_id = EXCLUDED.through_row_id,
+      updated_at = now()::text`;
+}
+
+// ---------- Companions (persistent roster outside combat) ----------
+
+export async function getCompanions(campaignId: number, activeOnly = true): Promise<Companion[]> {
+  const sql = await db();
+  if (activeOnly) {
+    return sql<Companion[]>`
+      SELECT * FROM companions WHERE campaign_id = ${campaignId} AND is_active = 1 ORDER BY id ASC`;
+  }
+  return sql<Companion[]>`SELECT * FROM companions WHERE campaign_id = ${campaignId} ORDER BY id ASC`;
+}
+
+export async function upsertCompanion(
+  campaignId: number,
+  companion: {
+    id?: number;
+    name: string;
+    description?: string;
+    hp_current?: number;
+    hp_max?: number;
+    ac?: number;
+    notes?: string;
+    is_active?: boolean;
+  }
+): Promise<Companion> {
+  const sql = await db();
+  if (companion.id) {
+    const existingRows = await sql<Companion[]>`SELECT * FROM companions WHERE id = ${companion.id}`;
+    const existing = existingRows[0];
+    if (existing) {
+      const rows = await sql<Companion[]>`
+        UPDATE companions SET
+          name = ${companion.name ?? existing.name},
+          description = ${companion.description ?? existing.description},
+          hp_current = ${companion.hp_current ?? existing.hp_current},
+          hp_max = ${companion.hp_max ?? existing.hp_max},
+          ac = ${companion.ac ?? existing.ac},
+          notes = ${companion.notes ?? existing.notes},
+          is_active = ${companion.is_active !== undefined ? (companion.is_active ? 1 : 0) : existing.is_active},
+          updated_at = now()::text
+        WHERE id = ${companion.id} RETURNING *`;
+      return rows[0];
+    }
+  }
+  const rows = await sql<Companion[]>`
+    INSERT INTO companions (campaign_id, name, description, hp_current, hp_max, ac, notes, is_active)
+    VALUES (
+      ${campaignId}, ${companion.name}, ${companion.description || ""},
+      ${companion.hp_current ?? companion.hp_max ?? 1}, ${companion.hp_max ?? 1}, ${companion.ac ?? 10},
+      ${companion.notes || ""}, ${companion.is_active === false ? 0 : 1}
+    ) RETURNING *`;
+  return rows[0];
 }
 
 // ---------- Combat ----------
 
-export function getActiveEncounter(campaignId: number): CombatEncounter | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM combat_encounters WHERE campaign_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1")
-    .get(campaignId) as unknown as CombatEncounter | undefined;
-  return row || null;
+export async function getActiveEncounter(campaignId: number): Promise<CombatEncounter | null> {
+  const sql = await db();
+  const rows = await sql<CombatEncounter[]>`
+    SELECT * FROM combat_encounters WHERE campaign_id = ${campaignId} AND status = 'active'
+    ORDER BY id DESC LIMIT 1`;
+  return rows[0] || null;
 }
 
-export function getCombatants(encounterId: number): CombatParticipant[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM combat_participants WHERE encounter_id = ? ORDER BY turn_order ASC")
-    .all(encounterId) as unknown as CombatParticipant[];
+export async function getCombatants(encounterId: number): Promise<CombatParticipant[]> {
+  const sql = await db();
+  return sql<CombatParticipant[]>`
+    SELECT * FROM combat_participants WHERE encounter_id = ${encounterId} ORDER BY turn_order ASC`;
 }
 
-export function startCombat(
+export async function startCombat(
   campaignId: number,
   description: string,
   participants: Array<{
@@ -324,58 +351,53 @@ export function startCombat(
     hp_current: number;
     hp_max: number;
     ac: number;
-    position?: string;
+    x?: number;
+    y?: number;
     notes?: string;
-  }>
-): { encounter: CombatEncounter; combatants: CombatParticipant[] } {
-  const db = getDb();
+  }>,
+  gridWidth = 10,
+  gridHeight = 8,
+  terrain: Array<{ x: number; y: number; type: string }> = []
+): Promise<{ encounter: CombatEncounter; combatants: CombatParticipant[] }> {
+  const sql = await db();
 
   // End any lingering active encounter first (defensive).
-  db.prepare("UPDATE combat_encounters SET status = 'ended', ended_at = datetime('now') WHERE campaign_id = ? AND status = 'active'").run(campaignId);
+  await sql`
+    UPDATE combat_encounters SET status = 'ended', ended_at = now()::text
+    WHERE campaign_id = ${campaignId} AND status = 'active'`;
 
-  const info = db
-    .prepare(
-      "INSERT INTO combat_encounters (campaign_id, status, round_number, current_turn_index, description) VALUES (?, 'active', 1, 0, ?)"
-    )
-    .run(campaignId, description);
-  const encounterId = info.lastInsertRowid as number;
+  const encounterRows = await sql<CombatEncounter[]>`
+    INSERT INTO combat_encounters (campaign_id, status, round_number, current_turn_index, description, grid_width, grid_height, terrain)
+    VALUES (${campaignId}, 'active', 1, 0, ${description}, ${gridWidth}, ${gridHeight}, ${JSON.stringify(terrain)})
+    RETURNING *`;
+  const encounter = encounterRows[0];
 
   const sorted = [...participants].sort((a, b) => b.initiative - a.initiative);
-  const insert = db.prepare(
-    `INSERT INTO combat_participants
-     (encounter_id, name, is_pc, is_companion, initiative, turn_order, hp_current, hp_max, ac, position, notes)
-     VALUES (@encounter_id, @name, @is_pc, @is_companion, @initiative, @turn_order, @hp_current, @hp_max, @ac, @position, @notes)`
-  );
-  sorted.forEach((p, idx) => {
-    insert.run({
-      encounter_id: encounterId,
-      name: p.name,
-      is_pc: p.is_pc ? 1 : 0,
-      is_companion: p.is_companion ? 1 : 0,
-      initiative: p.initiative,
-      turn_order: idx,
-      hp_current: p.hp_current,
-      hp_max: p.hp_max,
-      ac: p.ac,
-      position: p.position || "",
-      notes: p.notes || "",
-    });
-  });
+  for (let idx = 0; idx < sorted.length; idx++) {
+    const p = sorted[idx];
+    await sql`
+      INSERT INTO combat_participants
+        (encounter_id, name, is_pc, is_companion, initiative, turn_order, hp_current, hp_max, ac, x, y, notes)
+      VALUES (
+        ${encounter.id}, ${p.name}, ${p.is_pc ? 1 : 0}, ${p.is_companion ? 1 : 0}, ${p.initiative}, ${idx},
+        ${p.hp_current}, ${p.hp_max}, ${p.ac}, ${p.x ?? 0}, ${p.y ?? 0}, ${p.notes || ""}
+      )`;
+  }
 
-  const encounter = db.prepare("SELECT * FROM combat_encounters WHERE id = ?").get(encounterId) as unknown as CombatEncounter;
-  return { encounter, combatants: getCombatants(encounterId) };
+  return { encounter, combatants: await getCombatants(encounter.id) };
 }
 
-export function endCombat(encounterId: number) {
-  const db = getDb();
-  db.prepare("UPDATE combat_encounters SET status = 'ended', ended_at = datetime('now') WHERE id = ?").run(encounterId);
+export async function endCombat(encounterId: number): Promise<void> {
+  const sql = await db();
+  await sql`UPDATE combat_encounters SET status = 'ended', ended_at = now()::text WHERE id = ${encounterId}`;
 }
 
-export function updateCombatState(
+export async function updateCombatState(
   encounterId: number,
   updates: {
     round_number?: number;
     current_turn_index?: number;
+    terrain?: Array<{ x: number; y: number; type: string }>;
     participantUpdates?: Array<{
       id?: number;
       name?: string;
@@ -383,25 +405,21 @@ export function updateCombatState(
       hp_max?: number;
       ac?: number;
       conditions?: string[];
-      position?: string;
+      x?: number;
+      y?: number;
       notes?: string;
       is_defeated?: boolean;
       initiative?: number;
     }>;
   }
-): { encounter: CombatEncounter; combatants: CombatParticipant[] } {
-  const db = getDb();
+): Promise<{ encounter: CombatEncounter; combatants: CombatParticipant[] }> {
+  const sql = await db();
   const encounterFields: Record<string, unknown> = {};
   if (updates.round_number !== undefined) encounterFields.round_number = updates.round_number;
   if (updates.current_turn_index !== undefined) encounterFields.current_turn_index = updates.current_turn_index;
+  if (updates.terrain !== undefined) encounterFields.terrain = JSON.stringify(updates.terrain);
   if (Object.keys(encounterFields).length > 0) {
-    const setClause = Object.keys(encounterFields)
-      .map((k) => `${k} = @${k}`)
-      .join(", ");
-    db.prepare(`UPDATE combat_encounters SET ${setClause} WHERE id = @id`).run({
-      ...encounterFields,
-      id: encounterId,
-    });
+    await sql`UPDATE combat_encounters SET ${sql(encounterFields)} WHERE id = ${encounterId}`;
   }
 
   for (const p of updates.participantUpdates || []) {
@@ -412,44 +430,37 @@ export function updateCombatState(
     if (p.hp_max !== undefined) fields.hp_max = p.hp_max;
     if (p.ac !== undefined) fields.ac = p.ac;
     if (p.conditions !== undefined) fields.conditions = JSON.stringify(p.conditions);
-    if (p.position !== undefined) fields.position = p.position;
+    if (p.x !== undefined) fields.x = p.x;
+    if (p.y !== undefined) fields.y = p.y;
     if (p.notes !== undefined) fields.notes = p.notes;
     if (p.is_defeated !== undefined) fields.is_defeated = p.is_defeated ? 1 : 0;
     if (p.initiative !== undefined) fields.initiative = p.initiative;
     if (Object.keys(fields).length === 0) continue;
-    const setClause = Object.keys(fields)
-      .map((k) => `${k} = @${k}`)
-      .join(", ");
-    db.prepare(`UPDATE combat_participants SET ${setClause} WHERE id = @id`).run({
-      ...fields,
-      id: p.id,
-    });
+    await sql`UPDATE combat_participants SET ${sql(fields)} WHERE id = ${p.id}`;
   }
 
-  const encounter = db.prepare("SELECT * FROM combat_encounters WHERE id = ?").get(encounterId) as unknown as CombatEncounter;
-  return { encounter, combatants: getCombatants(encounterId) };
+  const encounterRows = await sql<CombatEncounter[]>`SELECT * FROM combat_encounters WHERE id = ${encounterId}`;
+  return { encounter: encounterRows[0], combatants: await getCombatants(encounterId) };
 }
 
 // ---------- Roll log ----------
 
-export function logRoll(
+export async function logRoll(
   campaignId: number,
   turnNumber: number,
   roll: { expression: string; breakdown: string; total: number; purpose?: string }
-): RollLogEntry {
-  const db = getDb();
-  const info = db
-    .prepare(
-      "INSERT INTO roll_log (campaign_id, turn_number, expression, breakdown, total, purpose) VALUES (?, ?, ?, ?, ?, ?)"
-    )
-    .run(campaignId, turnNumber, roll.expression, roll.breakdown, roll.total, roll.purpose || "");
-  return db.prepare("SELECT * FROM roll_log WHERE id = ?").get(info.lastInsertRowid) as unknown as RollLogEntry;
+): Promise<RollLogEntry> {
+  const sql = await db();
+  const rows = await sql<RollLogEntry[]>`
+    INSERT INTO roll_log (campaign_id, turn_number, expression, breakdown, total, purpose)
+    VALUES (${campaignId}, ${turnNumber}, ${roll.expression}, ${roll.breakdown}, ${roll.total}, ${roll.purpose || ""})
+    RETURNING *`;
+  return rows[0];
 }
 
-export function getRecentRolls(campaignId: number, limit = 20): RollLogEntry[] {
-  const db = getDb();
-  const rows = db
-    .prepare("SELECT * FROM roll_log WHERE campaign_id = ? ORDER BY id DESC LIMIT ?")
-    .all(campaignId, limit) as unknown as RollLogEntry[];
+export async function getRecentRolls(campaignId: number, limit = 20): Promise<RollLogEntry[]> {
+  const sql = await db();
+  const rows = await sql<RollLogEntry[]>`
+    SELECT * FROM roll_log WHERE campaign_id = ${campaignId} ORDER BY id DESC LIMIT ${limit}`;
   return rows.reverse();
 }

@@ -3,15 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:init": "node scripts/init-db.js"
   },
   "dependencies": {
-    "@google/genai": "^2.13.0",
+    "@anthropic-ai/sdk": "^0.32.1",
     "next": "^14.2.18",
+    "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

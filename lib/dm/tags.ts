@@ -1,14 +1,12 @@
-// Sentinel tags the DM appends to the very end of a narrative response to
+// Sentinel tag the DM appends to the very end of a narrative response to
 // signal a distinct app-level state. Shared between the system prompt
-// (which instructs the model when to use them) and the turn route (which
-// detects and strips them). Keep these in sync.
+// (which instructs the model when to use it) and the turn route (which
+// detects and strips it). Keep these in sync.
 
-/** A killing blow or otherwise lethal outcome is imminent -- the app should
- * pause for an in-fiction "how do you want to handle this" decision instead
- * of silently applying one rule. */
-export const DEATH_TAG = "[AWAITING_DEATH_DECISION]";
-
-/** The oneshot has reached its ending -- goal achieved, character died and
- * the player accepted it, or another natural stopping point. The app should
- * stop accepting further input and show a clear "session complete" state. */
-export const SESSION_COMPLETE_TAG = "[SESSION_COMPLETE]";
+/** The player character was just reduced to 0 HP and failed their death
+ * saves. This is a soft-fail campaign (see lib/dm/systemPrompt.ts): that
+ * never means permanent death by default -- the DM narrates a setback
+ * (captured, injured and dragged to safety, robbed and left for dead,
+ * etc.) and the story continues. This tag just tells the app to show a
+ * brief "defeated" beat in the UI. */
+export const DEFEAT_TAG = "[DEFEAT]";

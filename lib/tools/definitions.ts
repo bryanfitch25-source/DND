@@ -1,55 +1,24 @@
-import { Type, type FunctionDeclaration, type Schema } from "@google/genai";
+// Tool schemas in Claude's tool-use format (Anthropic's `input_schema` is
+// plain JSON Schema, so unlike Gemini's function-calling format there's no
+// conversion step needed here -- these are used as-is in the messages.create
+// `tools` param).
 
-// Tool schemas are authored once in plain JSON-Schema shape (the same shape
-// Anthropic's tool-use format uses) and converted below into Gemini's
-// FunctionDeclaration format (Schema with uppercase Type enum values). This
-// keeps the 12 tool definitions easy to read/maintain in one place while
-// still producing exactly what the Gemini function-calling API expects.
-
-interface PlainSchema {
+interface JsonSchema {
   type: "object" | "array" | "string" | "integer" | "number" | "boolean";
   description?: string;
-  properties?: Record<string, PlainSchema>;
-  items?: PlainSchema;
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
   required?: string[];
   enum?: string[];
-  default?: unknown;
 }
 
-interface PlainTool {
+export interface ToolDefinition {
   name: string;
   description: string;
-  input_schema: PlainSchema;
+  input_schema: JsonSchema;
 }
 
-const TYPE_MAP: Record<PlainSchema["type"], Type> = {
-  object: Type.OBJECT,
-  array: Type.ARRAY,
-  string: Type.STRING,
-  integer: Type.INTEGER,
-  number: Type.NUMBER,
-  boolean: Type.BOOLEAN,
-};
-
-function toGeminiSchema(schema: PlainSchema): Schema {
-  const result: Schema = { type: TYPE_MAP[schema.type] };
-  if (schema.description) result.description = schema.description;
-  if (schema.enum) {
-    result.enum = schema.enum;
-    result.format = "enum";
-  }
-  if (schema.properties) {
-    result.properties = {};
-    for (const [key, value] of Object.entries(schema.properties)) {
-      result.properties[key] = toGeminiSchema(value);
-    }
-  }
-  if (schema.items) result.items = toGeminiSchema(schema.items);
-  if (schema.required && schema.required.length > 0) result.required = schema.required;
-  return result;
-}
-
-const toolSchemas: PlainTool[] = [
+export const toolDefinitions: ToolDefinition[] = [
   {
     name: "create_character",
     description:
@@ -117,7 +86,7 @@ const toolSchemas: PlainTool[] = [
   {
     name: "update_character",
     description:
-      "Patch the character sheet with a partial update. Only include fields that changed. Use for HP changes, AC changes, condition changes, spell slot use, leveling up, ability score changes, death saves, etc. conditions/known_spells/features are full-replacement arrays; spell_slots is a full-replacement JSON-encoded object like '{\"1\":{\"max\":2,\"current\":1}}'.",
+      "Patch the character sheet with a partial update. Only include fields that changed. Use for HP changes, AC changes, condition changes, spell slot use, XP gain, leveling up (bump level, proficiency_bonus, hp_max, and add new features/spells together), ability score changes, death saves, etc. conditions/known_spells/features are full-replacement arrays; spell_slots is a full-replacement JSON-encoded object like '{\"1\":{\"max\":2,\"current\":1}}'.",
     input_schema: {
       type: "object",
       properties: {
@@ -139,7 +108,11 @@ const toolSchemas: PlainTool[] = [
         hit_dice_total: { type: "integer" },
         death_save_successes: { type: "integer", description: "0-3" },
         death_save_failures: { type: "integer", description: "0-3" },
-        is_dead: { type: "boolean" },
+        is_dead: {
+          type: "boolean",
+          description:
+            "This is a soft-fail campaign -- only set true if the player explicitly chose a permanent-death outcome themselves. Never set this automatically on failed death saves; narrate a setback instead (see system prompt).",
+        },
         conditions: {
           type: "array",
           items: { type: "string" },
@@ -265,11 +238,27 @@ const toolSchemas: PlainTool[] = [
   {
     name: "start_combat",
     description:
-      "Initialize a combat encounter: roll/assign initiative order and register all participants (PC, optional companion, and enemies). Auto-scale enemy count/stats for solo play before calling this.",
+      "Initialize a combat encounter on a tactical grid: roll/assign initiative order, place every participant (PC, optional companion, and enemies) at grid coordinates, and set the map size. Auto-scale enemy count/stats for solo play before calling this. The grid uses 5-ft squares -- a typical indoor room is ~6x6 to 10x10, an outdoor area can be larger.",
     input_schema: {
       type: "object",
       properties: {
-        description: { type: "string", description: "Short description of the encounter" },
+        description: { type: "string", description: "Short description of the encounter and terrain" },
+        grid_width: { type: "integer", description: "Battle map width in 5-ft squares (default 10)" },
+        grid_height: { type: "integer", description: "Battle map height in 5-ft squares (default 8)" },
+        terrain: {
+          type: "array",
+          description:
+            "Optional terrain markers to render on the grid: walls/obstacles, cover, or difficult terrain squares.",
+          items: {
+            type: "object",
+            properties: {
+              x: { type: "integer" },
+              y: { type: "integer" },
+              type: { type: "string", enum: ["wall", "cover", "difficult"] },
+            },
+            required: ["x", "y", "type"],
+          },
+        },
         participants: {
           type: "array",
           items: {
@@ -282,10 +271,11 @@ const toolSchemas: PlainTool[] = [
               hp_current: { type: "integer" },
               hp_max: { type: "integer" },
               ac: { type: "integer" },
-              position: { type: "string", description: "Tactical position/range note" },
+              x: { type: "integer", description: "Starting grid column (0-indexed)" },
+              y: { type: "integer", description: "Starting grid row (0-indexed)" },
               notes: { type: "string" },
             },
-            required: ["name", "initiative", "hp_current", "hp_max", "ac"],
+            required: ["name", "initiative", "hp_current", "hp_max", "ac", "x", "y"],
           },
         },
       },
@@ -295,12 +285,25 @@ const toolSchemas: PlainTool[] = [
   {
     name: "update_combat_state",
     description:
-      "Update the active encounter: advance round/turn, and/or update participant HP, conditions, position, or defeated status. Pass only the fields that changed. Use participant 'id' values from get_character_sheet's combat context or from the most recent start_combat/update_combat_state result.",
+      "Update the active encounter: advance round/turn, and/or update participant HP, conditions, grid position (x/y), or defeated status. Pass only the fields that changed. Use participant 'id' values from the most recent start_combat/update_combat_state result. Movement speed is in feet (e.g. 30 ft = 6 squares); a single move should not exceed the mover's speed for that turn unless they're using extra actions to move further.",
     input_schema: {
       type: "object",
       properties: {
         round_number: { type: "integer" },
         current_turn_index: { type: "integer", description: "Index into initiative order of whose turn it is" },
+        terrain: {
+          type: "array",
+          description: "Full replacement list of terrain markers, if the battlefield changed (e.g. a wall was destroyed).",
+          items: {
+            type: "object",
+            properties: {
+              x: { type: "integer" },
+              y: { type: "integer" },
+              type: { type: "string", enum: ["wall", "cover", "difficult"] },
+            },
+            required: ["x", "y", "type"],
+          },
+        },
         participant_updates: {
           type: "array",
           items: {
@@ -312,7 +315,8 @@ const toolSchemas: PlainTool[] = [
               hp_max: { type: "integer" },
               ac: { type: "integer" },
               conditions: { type: "array", items: { type: "string" } },
-              position: { type: "string" },
+              x: { type: "integer", description: "New grid column" },
+              y: { type: "integer", description: "New grid row" },
               notes: { type: "string" },
               is_defeated: { type: "boolean" },
               initiative: { type: "integer" },
@@ -324,6 +328,25 @@ const toolSchemas: PlainTool[] = [
     },
   },
   {
+    name: "manage_companion",
+    description:
+      "Add, update, or dismiss a persistent NPC companion/ally who travels with the player outside of combat (separate from combat-only participants). Call this when a companion joins, when their HP/status changes between fights, or when they leave/die/are dismissed (set is_active false). Omit id to create a new companion.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "integer", description: "Existing companion id to update; omit to create a new one" },
+        name: { type: "string" },
+        description: { type: "string", description: "Short description of who they are" },
+        hp_current: { type: "integer" },
+        hp_max: { type: "integer" },
+        ac: { type: "integer" },
+        notes: { type: "string" },
+        is_active: { type: "boolean", description: "False if they've left the party, died, or been dismissed" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "end_combat",
     description: "Tear down the active combat encounter once it's resolved (all enemies defeated/fled, or PC fled).",
     input_schema: {
@@ -332,9 +355,3 @@ const toolSchemas: PlainTool[] = [
     },
   },
 ];
-
-export const toolDefinitions: FunctionDeclaration[] = toolSchemas.map((tool) => ({
-  name: tool.name,
-  description: tool.description,
-  parameters: toGeminiSchema(tool.input_schema),
-}));
