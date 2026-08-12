@@ -29,11 +29,36 @@ export default function NarrativePanel({
 }) {
   const [input, setInput] = useState("");
   const [recapDismissed, setRecapDismissed] = useState(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const wasNearBottomRef = useRef(true);
 
+  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    setShowJumpToLatest(false);
+  }
+
+  // Only auto-scroll on new content if the reader was already near the
+  // bottom -- otherwise a new DM reply would yank someone back down while
+  // they're scrolled up rereading earlier history. If they're scrolled up
+  // when new content arrives, surface a "Jump to latest" nudge instead.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (wasNearBottomRef.current) {
+      scrollToBottom();
+    } else {
+      setShowJumpToLatest(true);
+    }
   }, [entries, isLoading]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    wasNearBottomRef.current = nearBottom;
+    if (nearBottom) setShowJumpToLatest(false);
+  }
 
   async function submit(text?: string) {
     const trimmed = (text ?? input).trim();
@@ -48,8 +73,8 @@ export default function NarrativePanel({
   const quickActions = characterExists ? (inCombat ? COMBAT_QUICK_ACTIONS : DEFAULT_QUICK_ACTIONS) : [];
 
   return (
-    <div className="flex flex-col h-full">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4">
+    <div className="flex flex-col h-full relative">
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4">
         {summary && !recapDismissed && (
           <div className="panel rounded-lg p-3 max-w-2xl">
             <div className="flex items-center justify-between mb-1">
@@ -109,6 +134,15 @@ export default function NarrativePanel({
           </div>
         )}
       </div>
+
+      {showJumpToLatest && (
+        <button
+          onClick={() => scrollToBottom()}
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 text-xs px-3 py-1.5 rounded-full bg-ink-800 border border-gold/40 text-parchment/80 shadow-glow-gold hover:text-parchment"
+        >
+          ↓ Jump to latest
+        </button>
+      )}
 
       {quickActions.length > 0 && (
         <div className="px-3 md:px-6 pb-2 flex gap-2 overflow-x-auto">

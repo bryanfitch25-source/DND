@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 /** Themed replacement for window.confirm() -- native browser confirm
  * dialogs break the mystical dark aesthetic and can't be styled at all. */
@@ -26,6 +27,8 @@ export default function ConfirmModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useBodyScrollLock(true);
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>

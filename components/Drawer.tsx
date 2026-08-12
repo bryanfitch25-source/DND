@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 /** A slide-in overlay panel, used on mobile to hold the character sheet /
  * quest log where a desktop layout would show them as static sidebars.
@@ -26,6 +27,8 @@ export default function Drawer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  useBodyScrollLock(open);
 
   return (
     <div

@@ -49,6 +49,16 @@ export default function SettingsPanel({
   const [nameSaveState, setNameSaveState] = useTransientState();
   const [modelSaveState, setModelSaveState] = useTransientState();
 
+  async function saveName() {
+    setSavingName(true);
+    try {
+      const ok = await onRename(name.trim());
+      setNameSaveState(ok ? "saved" : "error");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
   return (
     <div className="p-4 md:p-6 h-full overflow-y-auto max-w-xl mx-auto space-y-8">
       <h2 className="font-display text-lg text-gold-bright">Settings</h2>
@@ -61,19 +71,17 @@ export default function SettingsPanel({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !savingName && name.trim() && name !== campaign.name) {
+                e.preventDefault();
+                saveName();
+              }
+            }}
             className="flex-1 rounded bg-ink-900/60 border border-gold/20 px-3 py-2 text-sm text-parchment focus:outline-none focus:ring-1 focus:ring-gold"
           />
           <button
             disabled={savingName || !name.trim() || name === campaign.name}
-            onClick={async () => {
-              setSavingName(true);
-              try {
-                const ok = await onRename(name.trim());
-                setNameSaveState(ok ? "saved" : "error");
-              } finally {
-                setSavingName(false);
-              }
-            }}
+            onClick={saveName}
             className="px-3 py-2 rounded bg-blood hover:bg-blood-light disabled:opacity-40 text-parchment text-sm"
           >
             Save

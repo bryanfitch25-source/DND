@@ -84,6 +84,15 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Auto-focus the story input on desktop only -- on mobile this would pop
+  // the on-screen keyboard open the instant the page loads, which is more
+  // annoying than helpful.
+  useEffect(() => {
+    if (!initializing && view === "story" && window.matchMedia("(min-width: 768px)").matches) {
+      inputRef.current?.focus();
+    }
+  }, [initializing, view]);
+
   const handleSubmit = useCallback(async (input: string): Promise<TurnResponse | null> => {
     setIsLoading(true);
     setError(null);

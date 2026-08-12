@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { Character } from "@/types";
 import { xpToNextLevel } from "@/lib/dnd";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 
 export default function LevelUpModal({
   character,
@@ -24,6 +25,8 @@ export default function LevelUpModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useBodyScrollLock(true);
 
   const nextXp = xpToNextLevel(character.xp, targetLevel);
 
