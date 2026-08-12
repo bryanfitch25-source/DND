@@ -36,6 +36,13 @@ export function getSql(): postgres.Sql {
     ssl: "require",
     max: 5,
     idle_timeout: 20,
+    // Supabase's connection string here uses the Supavisor "transaction"
+    // pooler (port 6543): each query can be routed to a different physical
+    // backend connection, so postgres.js's default prepared-statement
+    // caching (which is connection-scoped) produces inconsistent results --
+    // e.g. two back-to-back reads of "the current campaign" returning
+    // different rows. Required off for transaction-mode pooling.
+    prepare: false,
   });
 
   return client;
