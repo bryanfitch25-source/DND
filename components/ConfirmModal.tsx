@@ -36,12 +36,12 @@ export default function ConfirmModal({
         className={`bg-ink-800 panel rounded-lg p-6 max-w-sm w-full ${danger ? "border-blood/40 shadow-glow-blood" : "border-gold/30 shadow-glow-gold"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-display text-lg text-parchment mb-2">{title}</h2>
-        <p className="text-sm text-parchment/70 mb-5">{body}</p>
+        <h2 className="font-display text-3xl text-parchment mb-2">{title}</h2>
+        <p className="text-xl text-parchment/70 mb-5">{body}</p>
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-3 py-2 rounded text-sm text-parchment/60 hover:text-parchment"
+            className="px-3 py-2 rounded text-xl text-parchment/60 hover:text-parchment"
           >
             Cancel
           </button>
@@ -50,7 +50,7 @@ export default function ConfirmModal({
               onConfirm();
               onClose();
             }}
-            className={`px-4 py-2 rounded text-sm font-medium text-parchment ${
+            className={`px-4 py-2 rounded text-xl font-medium text-parchment ${
               danger ? "bg-blood hover:bg-blood-light shadow-glow-blood" : "bg-scarlight-dim hover:bg-scarlight/40 border border-scarlight/50 shadow-glow"
             }`}
           >

@@ -26,10 +26,10 @@ export default function CombatView({
   return (
     <div className="border-2 border-blood/70 bg-blood/10 rounded-lg p-3 md:p-4 mb-4 shadow-glow-blood">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-        <h2 className="font-display text-base md:text-lg text-blood-light tracking-wide">
+        <h2 className="font-display text-2xl md:text-3xl text-blood-light tracking-wide">
           ⚔ Combat — Round {encounter.round_number}
         </h2>
-        {encounter.description && <span className="text-xs text-parchment/60">{encounter.description}</span>}
+        {encounter.description && <span className="text-lg text-parchment/60">{encounter.description}</span>}
       </div>
 
       <div className="flex flex-col md:grid md:grid-cols-[1fr_auto] gap-4 items-start">
@@ -41,11 +41,11 @@ export default function CombatView({
             return (
               <div
                 key={c.id}
-                className={`flex items-center gap-2 md:gap-3 rounded px-2 py-1.5 text-xs md:text-sm ${
+                className={`flex items-center gap-2 md:gap-3 rounded px-2 py-1.5 text-lg md:text-xl ${
                   isActive ? "bg-blood/40 ring-1 ring-blood" : "bg-ink-900/40"
                 } ${c.is_defeated ? "opacity-40" : ""}`}
               >
-                <span className="w-5 text-right text-[10px] md:text-xs text-parchment/50 shrink-0">{c.initiative}</span>
+                <span className="w-5 text-right text-base md:text-lg text-parchment/50 shrink-0">{c.initiative}</span>
                 <span className="flex-1 min-w-0 truncate">
                   {isActive ? "▶ " : ""}
                   {c.name}
@@ -57,14 +57,14 @@ export default function CombatView({
                     style={{ width: `${hpPct}%` }}
                   />
                 </div>
-                <span className="text-[10px] md:text-xs text-parchment/70 shrink-0">
+                <span className="text-base md:text-lg text-parchment/70 shrink-0">
                   {c.hp_current}/{c.hp_max}
                 </span>
-                <span className="hidden sm:inline text-[10px] md:text-xs text-parchment/50 shrink-0">AC {c.ac}</span>
+                <span className="hidden sm:inline text-base md:text-lg text-parchment/50 shrink-0">AC {c.ac}</span>
                 {conditions.length > 0 && (
-                  <span className="hidden md:inline text-[10px] text-blood-light/90 shrink-0">{conditions.join(", ")}</span>
+                  <span className="hidden md:inline text-base text-blood-light/90 shrink-0">{conditions.join(", ")}</span>
                 )}
-                {c.is_defeated ? <span className="text-[10px] uppercase text-parchment/40 shrink-0">down</span> : null}
+                {c.is_defeated ? <span className="text-base uppercase text-parchment/40 shrink-0">down</span> : null}
               </div>
             );
           })}
@@ -73,7 +73,7 @@ export default function CombatView({
       </div>
 
       {active && (
-        <p className="text-xs text-parchment/60 mt-2">
+        <p className="text-lg text-parchment/60 mt-2">
           Current turn: <span className="font-medium text-scarlight-soft">{active.name}</span>
         </p>
       )}

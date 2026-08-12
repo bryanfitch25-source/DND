@@ -20,7 +20,7 @@ export default function RollHistory({ rolls }: { rolls: RollLogEntry[] }) {
     <div className="border-t border-gold/15">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-2 text-xs uppercase tracking-widest text-gold/70 hover:text-gold-bright"
+        className="w-full flex items-center justify-between px-4 py-2 text-lg uppercase tracking-widest text-gold/70 hover:text-gold-bright"
       >
         <span>Roll History ({rolls.length})</span>
         <span>{open ? "−" : "+"}</span>
@@ -31,16 +31,16 @@ export default function RollHistory({ rolls }: { rolls: RollLogEntry[] }) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter by purpose or expression…"
-            className="w-full mb-2 rounded bg-ink-900/60 border border-gold/15 px-2 py-1 text-xs text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-scarlight"
+            className="w-full mb-2 rounded bg-ink-900/60 border border-gold/15 px-2 py-1 text-lg text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-scarlight"
           />
           <ul className="space-y-1 max-h-48 overflow-y-auto">
             {filtered.map((r) => (
-              <li key={r.id} className="text-xs flex justify-between gap-2 bg-ink-900/40 rounded px-2 py-1">
+              <li key={r.id} className="text-lg flex justify-between gap-2 bg-ink-900/40 rounded px-2 py-1">
                 <span className="text-parchment/70 truncate">{r.purpose || r.expression}</span>
                 <span className="text-parchment/40 shrink-0">{r.breakdown}</span>
               </li>
             ))}
-            {filtered.length === 0 && <li className="text-parchment/30 text-xs">No matching rolls.</li>}
+            {filtered.length === 0 && <li className="text-parchment/30 text-lg">No matching rolls.</li>}
           </ul>
         </div>
       )}

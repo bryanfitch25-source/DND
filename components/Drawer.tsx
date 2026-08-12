@@ -44,7 +44,7 @@ export default function Drawer({
         }`}
       >
         <div className="flex items-center justify-between px-4 py-3 pt-safe border-b border-gold/15">
-          <span className="font-display text-sm uppercase tracking-wider text-gold-bright">{title}</span>
+          <span className="font-display text-xl uppercase tracking-wider text-gold-bright">{title}</span>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full text-parchment/60 hover:text-parchment hover:bg-white/5"

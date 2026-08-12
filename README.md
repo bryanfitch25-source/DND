@@ -4,7 +4,7 @@ A personal, single-player web app where Claude acts as a Dungeon Master running 
 
 Unlike a bounded oneshot, this campaign has no forced ending: play a session, stop whenever you like, and pick up again later — your character, the world, and the story all persist. Combat runs on a real tactical grid, and by default this is a **soft-fail** game: your character can be knocked down and defeated, but that leads to a narrated setback (captured, injured, robbed), never permanent death, unless you explicitly choose that outcome yourself.
 
-Single-player by design. It's deployed on a public URL though, so it's gated behind HTTP Basic Auth (see Deployment) — without that, anyone who found the URL could spend your Anthropic credits.
+Single-player by design. It's deployed on a public URL though, so it's gated behind a login screen with a "remember me" session cookie (see Deployment) — without that, anyone who found the URL could spend your Anthropic credits.
 
 ## Local development
 
@@ -18,7 +18,8 @@ Single-player by design. It's deployed on a public URL though, so it's gated beh
    ```
    - `ANTHROPIC_API_KEY` — from the [Anthropic Console](https://console.anthropic.com/) (pay-as-you-go, requires billing set up).
    - `DATABASE_URL` — your Supabase project's connection string (Project Settings → Database → Connection string → URI, "Transaction" pooler mode works well for serverless).
-   - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` — leave blank for local dev (the app is left open if unset); required once deployed publicly.
+   - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` — the login credentials; leave blank for local dev (the app is left open if unset), required once deployed publicly.
+   - `AUTH_SECRET` — optional, signs the session cookie; falls back to `BASIC_AUTH_PASSWORD` if unset.
 3. Start the dev server:
    ```
    npm run dev
@@ -47,8 +48,9 @@ The main DM model defaults to Haiku for this reason (`CLAUDE_MODEL` in `lib/conf
    - `DATABASE_URL`
    - `BASIC_AUTH_USER`
    - `BASIC_AUTH_PASSWORD`
+   - `AUTH_SECRET` (optional but recommended — any random string)
 4. Deploy. Every push to the connected branch redeploys automatically.
-5. Open the `*.vercel.app` URL Vercel gives you, enter the Basic Auth credentials once (your browser/phone remembers them), and play.
+5. Open the `*.vercel.app` URL Vercel gives you. You'll land on `/login` — enter your credentials, check "Remember me" for a session that lasts a year (unchecked lasts 12 hours), and play.
 6. On your iPhone: open that URL in Safari, tap Share → **Add to Home Screen**. Because it's a real HTTPS URL (not a LAN address), this works from anywhere — home Wi-Fi, cell data, a friend's house.
 
 ### Execution time limit
@@ -62,7 +64,7 @@ A DM turn with several tool calls has measured up to ~55s locally. Vercel's Hobb
 - **Supabase (Postgres)** via the `postgres` npm package — hand-written SQL with typed async wrapper functions (no ORM)
 - **Tailwind CSS** for styling
 - **`@anthropic-ai/sdk`** (Anthropic's official SDK) for all Claude API calls
-- **HTTP Basic Auth** (`middleware.ts`) gating every route when `BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD` are set
+- **Cookie-based login** (`middleware.ts`, `app/login/`, `lib/auth.ts`) gating every route when `BASIC_AUTH_USER`/`BASIC_AUTH_PASSWORD` are set — a signed, stateless session cookie with a "remember me" option (1 year vs. 12 hours), rather than HTTP Basic Auth (whose browser-cached credentials don't reliably persist across launches for an iOS home-screen PWA)
 
 ### How a turn works
 
@@ -141,7 +143,11 @@ app/
   api/session/new/route.ts    start a new campaign (fresh campaign row)
   api/campaign/route.ts       PATCH campaign name / per-campaign model override
   api/summarize/route.ts      force a rolling-summary refresh on demand (Settings tab)
-middleware.ts                 HTTP Basic Auth gate for the public deployment
+  api/auth/login/route.ts     verify credentials, set the signed session cookie
+  api/auth/logout/route.ts    clear the session cookie
+  login/page.tsx               login screen (username, password, remember me)
+middleware.ts                 session-cookie gate for the public deployment
+lib/auth.ts                    signed session token creation/verification (Web Crypto HMAC)
 components/
   CharacterSheet.tsx           full sheet: abilities/saves, skills, attacks, spells, inventory (collapsible sections)
   QuestLog.tsx                 active/resolved quest threads

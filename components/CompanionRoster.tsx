@@ -6,8 +6,8 @@ export default function CompanionRoster({ companions }: { companions: Companion[
   if (companions.length === 0) return null;
 
   return (
-    <div className="p-4 text-sm border-t border-gold/15">
-      <h2 className="text-xs uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
+    <div className="p-4 text-xl border-t border-gold/15">
+      <h2 className="text-lg uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
         Companions
       </h2>
       <ul className="space-y-2">
@@ -16,8 +16,8 @@ export default function CompanionRoster({ companions }: { companions: Companion[
           return (
             <li key={c.id} className="panel rounded p-2">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-xs text-parchment">{c.name}</span>
-                <span className="text-[10px] text-parchment/50">AC {c.ac}</span>
+                <span className="font-medium text-lg text-parchment">{c.name}</span>
+                <span className="text-base text-parchment/50">AC {c.ac}</span>
               </div>
               <div className="h-1.5 bg-ink-900/60 rounded overflow-hidden my-1 border border-black/40">
                 <div
@@ -25,10 +25,10 @@ export default function CompanionRoster({ companions }: { companions: Companion[
                   style={{ width: `${hpPct}%` }}
                 />
               </div>
-              <div className="text-[10px] text-parchment/50">
+              <div className="text-base text-parchment/50">
                 {c.hp_current}/{c.hp_max} HP
               </div>
-              {c.description && <p className="text-[11px] text-parchment/60 mt-1">{c.description}</p>}
+              {c.description && <p className="text-lg text-parchment/60 mt-1">{c.description}</p>}
             </li>
           );
         })}

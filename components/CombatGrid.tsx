@@ -103,7 +103,7 @@ export default function CombatGrid({
             <div
               key={i}
               title={t.type}
-              className={`absolute flex items-center justify-center text-xs ${terrainStyle(t.type)}`}
+              className={`absolute flex items-center justify-center text-lg ${terrainStyle(t.type)}`}
               style={{ width: CELL_SIZE, height: CELL_SIZE, left: t.x * CELL_SIZE, top: t.y * CELL_SIZE }}
             >
               {terrainGlyph(t.type)}
@@ -117,7 +117,7 @@ export default function CombatGrid({
                 key={c.id}
                 onClick={() => setSelectedId(c.id === selectedId ? null : c.id)}
                 title={`${c.name} — ${c.hp_current}/${c.hp_max} HP, AC ${c.ac}`}
-                className={`absolute flex flex-col items-center justify-center rounded-full border-2 text-[10px] font-semibold leading-none transition-all duration-300 cursor-pointer ${tokenColor(
+                className={`absolute flex flex-col items-center justify-center rounded-full border-2 text-base font-semibold leading-none transition-all duration-300 cursor-pointer ${tokenColor(
                   c
                 )} ${c.id === activeId ? "ring-2 ring-parchment ring-offset-1 ring-offset-black" : ""} ${
                   c.id === selectedId ? "scale-110 z-10" : ""
@@ -143,7 +143,7 @@ export default function CombatGrid({
       </div>
 
       {selected && (
-        <div className="mt-2 rounded-md border border-gold/20 bg-ink-900/60 p-2 text-xs">
+        <div className="mt-2 rounded-md border border-gold/20 bg-ink-900/60 p-2 text-lg">
           <div className="flex items-center justify-between mb-1">
             <span className="font-semibold text-parchment">
               {selected.name}

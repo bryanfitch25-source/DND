@@ -223,7 +223,7 @@ export default function Home() {
 
   if (initializing) {
     return (
-      <main className="h-screen flex items-center justify-center text-parchment/60 text-sm font-display tracking-widest uppercase">
+      <main className="h-screen flex items-center justify-center text-parchment/60 text-xl font-display tracking-widest uppercase">
         Loading campaign…
       </main>
     );
@@ -261,7 +261,7 @@ export default function Home() {
           >
             <IconShield className="w-5 h-5" />
           </button>
-          <span className="font-display text-sm md:text-base tracking-wide text-parchment truncate">
+          <span className="font-display text-xl md:text-2xl tracking-wide text-parchment truncate">
             <span className="text-gold-bright">SoloDM</span>
             <span className="hidden sm:inline"> — {state?.campaign.name}</span>
           </span>
@@ -271,7 +271,7 @@ export default function Home() {
                 key={t.key}
                 onClick={() => setView(t.key)}
                 aria-current={view === t.key ? "page" : undefined}
-                className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                className={`text-lg px-2.5 py-1 rounded transition-colors ${
                   view === t.key
                     ? "bg-blood/40 text-parchment shadow-glow-blood"
                     : "text-parchment/50 hover:text-parchment hover:bg-white/5"
@@ -286,13 +286,13 @@ export default function Home() {
           {canLevelUp && (
             <button
               onClick={() => setShowLevelUp(true)}
-              className="text-xs px-2 py-1 rounded border border-scarlight/50 text-scarlight-soft shadow-glow animate-pulse"
+              className="text-lg px-2 py-1 rounded border border-scarlight/50 text-scarlight-soft shadow-glow animate-pulse"
             >
               <span className="hidden sm:inline">⬆ Level Up Available</span>
               <span className="sm:hidden">⬆</span>
             </button>
           )}
-          <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded bg-blood/25 text-parchment/80 border border-blood/30">
+          <span className="hidden sm:inline-block text-lg px-2 py-0.5 rounded bg-blood/25 text-parchment/80 border border-blood/30">
             {statusLabel}
           </span>
           <button
@@ -325,7 +325,7 @@ export default function Home() {
             )}
             {levelUpDiff && (
               <div className="px-3 md:px-6 pt-3">
-                <div className="rounded-lg border border-scarlight/40 bg-scarlight-dim/20 px-3 py-2 text-xs text-parchment/90 shadow-glow">
+                <div className="rounded-lg border border-scarlight/40 bg-scarlight-dim/20 px-3 py-2 text-lg text-parchment/90 shadow-glow">
                   {levelUpDiff}
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function Home() {
             key={t.key}
             onClick={() => setView(t.key)}
             aria-current={view === t.key ? "page" : undefined}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] uppercase tracking-wide transition-colors ${
+            className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-base uppercase tracking-wide transition-colors ${
               view === t.key ? "text-scarlight-soft" : "text-parchment/40"
             }`}
           >
