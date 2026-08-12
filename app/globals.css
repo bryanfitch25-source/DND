@@ -58,6 +58,16 @@ body::before {
   color: #f3ecd8;
 }
 
+/* A visible, on-theme focus ring for keyboard navigation -- the browser
+   default outline is low-contrast against this dark palette and easy to
+   lose track of. Only shows for keyboard focus (:focus-visible), not
+   mouse/touch clicks, so it never adds visual noise to tapping. */
+:focus-visible {
+  outline: 2px solid rgba(217, 184, 120, 0.8);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Ornate section divider: a gold hairline fading at both ends with a small
    rune-like glyph centered on it -- used to separate major panel sections
    without resorting to plain <hr>-style flatness. */

@@ -3,21 +3,26 @@
 import { useEffect, useRef, useState } from "react";
 import type { NarrativeLogEntry } from "@/types";
 
+const DEFAULT_QUICK_ACTIONS = ["Look around", "Check my inventory", "Rest here"];
+const COMBAT_QUICK_ACTIONS = ["Attack the nearest enemy", "Defend / hold position", "Try to flee"];
+
 export default function NarrativePanel({
   entries,
   onSubmit,
   isLoading,
   defeatOccurred,
   characterExists,
+  inCombat,
   error,
   summary,
   inputRef,
 }: {
   entries: NarrativeLogEntry[];
-  onSubmit: (input: string) => void;
+  onSubmit: (input: string) => Promise<boolean>;
   isLoading: boolean;
   defeatOccurred: boolean;
   characterExists: boolean;
+  inCombat?: boolean;
   error: string | null;
   summary?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
@@ -30,12 +35,17 @@ export default function NarrativePanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [entries, isLoading]);
 
-  function submit() {
-    const trimmed = input.trim();
+  async function submit(text?: string) {
+    const trimmed = (text ?? input).trim();
     if (!trimmed || isLoading) return;
-    onSubmit(trimmed);
-    setInput("");
+    // Clear (or leave the box, for quick actions) optimistically, but
+    // restore it on failure so a failed send never loses what was typed.
+    if (text === undefined) setInput("");
+    const ok = await onSubmit(trimmed);
+    if (!ok && text === undefined) setInput(trimmed);
   }
+
+  const quickActions = characterExists ? (inCombat ? COMBAT_QUICK_ACTIONS : DEFAULT_QUICK_ACTIONS) : [];
 
   return (
     <div className="flex flex-col h-full">
@@ -46,6 +56,7 @@ export default function NarrativePanel({
               <span className="text-xs uppercase tracking-widest text-gold/70">Story So Far</span>
               <button
                 onClick={() => setRecapDismissed(true)}
+                aria-label="Dismiss story so far"
                 className="text-parchment/40 hover:text-parchment/80 text-xs"
               >
                 ✕
@@ -77,14 +88,15 @@ export default function NarrativePanel({
         ))}
         {isLoading && (
           <div className="text-left">
-            <div className="inline-block rounded-lg px-4 py-2 bg-ink-800/50 text-parchment/50 italic text-sm">
+            <div className="inline-flex items-center gap-2 rounded-lg px-4 py-2 bg-ink-800/50 text-parchment/50 italic text-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-scarlight animate-pulse shadow-glow" />
               The DM is thinking…
             </div>
           </div>
         )}
         {error && (
           <div className="text-left">
-            <div className="inline-block rounded-lg px-4 py-2 bg-red-950 text-red-200 text-sm">
+            <div className="inline-block rounded-lg px-4 py-2 bg-blood-dark/40 border border-blood-light/40 text-parchment text-sm">
               {error}
             </div>
           </div>
@@ -97,6 +109,21 @@ export default function NarrativePanel({
           </div>
         )}
       </div>
+
+      {quickActions.length > 0 && (
+        <div className="px-3 md:px-6 pb-2 flex gap-2 overflow-x-auto">
+          {quickActions.map((qa) => (
+            <button
+              key={qa}
+              onClick={() => submit(qa)}
+              disabled={isLoading}
+              className="shrink-0 whitespace-nowrap text-xs px-3 py-1.5 rounded-full border border-gold/25 text-parchment/70 hover:text-parchment hover:border-gold/50 disabled:opacity-40"
+            >
+              {qa}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="border-t border-gold/15 p-3 md:p-4 pb-safe flex gap-2">
         <textarea
@@ -117,7 +144,7 @@ export default function NarrativePanel({
           className="flex-1 resize-none rounded-md bg-ink-900/60 border border-gold/20 px-3 py-2.5 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
         />
         <button
-          onClick={submit}
+          onClick={() => submit()}
           disabled={isLoading || !input.trim()}
           className="min-h-[44px] px-4 py-2 rounded-md bg-blood hover:bg-blood-light disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm font-medium self-end shadow-glow-blood"
         >

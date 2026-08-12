@@ -50,8 +50,13 @@ export async function POST(req: Request) {
 
     const turnNumber = await q.incrementTurnNumber(campaignId);
 
-    await q.appendNarrative(campaignId, turnNumber, "player", playerInput);
-
+    // Deliberately NOT persisted yet -- buildMessages below reads narrative
+    // rows from the DB and separately receives playerInput as an explicit
+    // param, so persisting it here first would duplicate it into context
+    // (once via the transcript recap, once as the final turn). Persisting
+    // both player + DM entries together only after a successful reply also
+    // means a failed/interrupted turn leaves no orphaned, unanswered player
+    // message behind -- nothing is saved unless the whole turn succeeds.
     const character = await q.getCharacterByCampaign(campaignId);
     const campaign = await q.getCampaign(campaignId);
 
@@ -129,6 +134,7 @@ export async function POST(req: Request) {
       narrative = "(The DM paused without a response — try describing your action again.)";
     }
 
+    await q.appendNarrative(campaignId, turnNumber, "player", playerInput);
     await q.appendNarrative(campaignId, turnNumber, "dm", narrative);
 
     const state = await getFullState(narrative);

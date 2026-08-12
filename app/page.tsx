@@ -12,6 +12,7 @@ import WorldAtlas from "@/components/WorldAtlas";
 import SettingsPanel from "@/components/SettingsPanel";
 import LevelUpModal from "@/components/LevelUpModal";
 import Drawer from "@/components/Drawer";
+import ConfirmModal from "@/components/ConfirmModal";
 import { IconShield, IconScroll, IconFlame, IconBook, IconMap, IconGear } from "@/components/Icons";
 import { levelForXp } from "@/lib/dnd";
 import type { NarrativeLogEntry, TurnResponse } from "@/types";
@@ -43,6 +44,7 @@ export default function Home() {
   const [levelUpDiff, setLevelUpDiff] = useState<string | null>(null);
   const [charDrawerOpen, setCharDrawerOpen] = useState(false);
   const [questDrawerOpen, setQuestDrawerOpen] = useState(false);
+  const [showNewCampaignConfirm, setShowNewCampaignConfirm] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   async function loadState() {
@@ -87,10 +89,15 @@ export default function Home() {
     setError(null);
     setDefeatOccurred(false);
 
+    // Optimistic entry, tagged with a temp id so it can be cleanly removed
+    // if the turn fails -- the server only persists a turn once it fully
+    // succeeds (see app/api/turn/route.ts), so on failure nothing was
+    // actually saved and the UI shouldn't imply otherwise.
+    const tempId = Date.now();
     setEntries((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: tempId,
         campaign_id: 0,
         turn_number: 0,
         role: "player",
@@ -109,6 +116,7 @@ export default function Home() {
 
       if (!res.ok || json.error) {
         setError(json.error || "Something went wrong processing that turn.");
+        setEntries((prev) => prev.filter((e) => e.id !== tempId));
         return null;
       }
 
@@ -122,20 +130,18 @@ export default function Home() {
       return json;
     } catch (err) {
       setError("Network error talking to the DM. Check the server console.");
+      setEntries((prev) => prev.filter((e) => e.id !== tempId));
       return null;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  async function handleNewCampaign() {
-    if (
-      !confirm(
-        "Start a brand-new campaign? Your current character and story stay saved, but the app will switch to a fresh one."
-      )
-    ) {
-      return;
-    }
+  function handleNewCampaign() {
+    setShowNewCampaignConfirm(true);
+  }
+
+  async function confirmNewCampaign() {
     setIsLoading(true);
     setError(null);
     try {
@@ -149,24 +155,36 @@ export default function Home() {
     }
   }
 
-  async function handleRename(name: string) {
-    const res = await fetch("/api/campaign", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const json = await res.json();
-    if (json.campaign) setState((prev) => (prev ? { ...prev, campaign: json.campaign } : prev));
+  async function handleRename(name: string): Promise<boolean> {
+    try {
+      const res = await fetch("/api/campaign", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.campaign) return false;
+      setState((prev) => (prev ? { ...prev, campaign: json.campaign } : prev));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  async function handleModelChange(model: string | null) {
-    const res = await fetch("/api/campaign", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model }),
-    });
-    const json = await res.json();
-    if (json.campaign) setState((prev) => (prev ? { ...prev, campaign: json.campaign } : prev));
+  async function handleModelChange(model: string | null): Promise<boolean> {
+    try {
+      const res = await fetch("/api/campaign", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.campaign) return false;
+      setState((prev) => (prev ? { ...prev, campaign: json.campaign } : prev));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function handleForceSummarize(): Promise<string> {
@@ -243,6 +261,7 @@ export default function Home() {
               <button
                 key={t.key}
                 onClick={() => setView(t.key)}
+                aria-current={view === t.key ? "page" : undefined}
                 className={`text-xs px-2.5 py-1 rounded transition-colors ${
                   view === t.key
                     ? "bg-blood/40 text-parchment shadow-glow-blood"
@@ -302,10 +321,11 @@ export default function Home() {
               <div className="flex-1 overflow-hidden">
                 <NarrativePanel
                   entries={entries}
-                  onSubmit={handleSubmit}
+                  onSubmit={async (input) => (await handleSubmit(input)) !== null}
                   isLoading={isLoading}
                   defeatOccurred={defeatOccurred}
                   characterExists={!!character}
+                  inCombat={!!activeEncounter}
                   error={error}
                   summary={summary}
                   inputRef={inputRef}
@@ -338,6 +358,7 @@ export default function Home() {
           <button
             key={t.key}
             onClick={() => setView(t.key)}
+            aria-current={view === t.key ? "page" : undefined}
             className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] uppercase tracking-wide transition-colors ${
               view === t.key ? "text-scarlight-soft" : "text-parchment/40"
             }`}
@@ -362,6 +383,17 @@ export default function Home() {
           onConfirm={handleLevelUp}
           onClose={() => setShowLevelUp(false)}
           isLoading={levelUpLoading}
+        />
+      )}
+
+      {showNewCampaignConfirm && (
+        <ConfirmModal
+          title="Start a New Campaign?"
+          body="Your current character and story stay saved in the database, but the app will switch to a fresh campaign."
+          confirmLabel="Start New Campaign"
+          danger
+          onConfirm={confirmNewCampaign}
+          onClose={() => setShowNewCampaignConfirm(false)}
         />
       )}
     </main>

@@ -1,12 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Campaign } from "@/types";
 
 const MODEL_OPTIONS = [
   { value: "", label: "Default (Haiku — fast & cheap)" },
   { value: "claude-sonnet-5", label: "Sonnet (higher quality, more expensive)" },
 ];
+
+type SaveState = "idle" | "saved" | "error";
+
+function useTransientState(): [SaveState, (s: SaveState) => void] {
+  const [state, setState] = useState<SaveState>("idle");
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+  function set(s: SaveState) {
+    setState(s);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (s !== "idle") timeoutRef.current = setTimeout(() => setState("idle"), 2500);
+  }
+  return [state, set];
+}
+
+function SaveBadge({ state }: { state: SaveState }) {
+  if (state === "saved") return <span className="text-xs text-scarlight-soft">✓ Saved</span>;
+  if (state === "error") return <span className="text-xs text-blood-light">Failed to save — try again</span>;
+  return null;
+}
 
 export default function SettingsPanel({
   campaign,
@@ -16,8 +36,8 @@ export default function SettingsPanel({
   onNewCampaign,
 }: {
   campaign: Campaign;
-  onRename: (name: string) => Promise<void>;
-  onModelChange: (model: string | null) => Promise<void>;
+  onRename: (name: string) => Promise<boolean>;
+  onModelChange: (model: string | null) => Promise<boolean>;
   onForceSummarize: () => Promise<string>;
   onNewCampaign: () => void;
 }) {
@@ -26,6 +46,8 @@ export default function SettingsPanel({
   const [savingModel, setSavingModel] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  const [nameSaveState, setNameSaveState] = useTransientState();
+  const [modelSaveState, setModelSaveState] = useTransientState();
 
   return (
     <div className="p-4 md:p-6 h-full overflow-y-auto max-w-xl mx-auto space-y-8">
@@ -46,7 +68,8 @@ export default function SettingsPanel({
             onClick={async () => {
               setSavingName(true);
               try {
-                await onRename(name.trim());
+                const ok = await onRename(name.trim());
+                setNameSaveState(ok ? "saved" : "error");
               } finally {
                 setSavingName(false);
               }
@@ -56,6 +79,7 @@ export default function SettingsPanel({
             Save
           </button>
         </div>
+        <div className="mt-1 h-4"><SaveBadge state={nameSaveState} /></div>
       </section>
 
       <section>
@@ -74,7 +98,8 @@ export default function SettingsPanel({
           onChange={async (e) => {
             setSavingModel(true);
             try {
-              await onModelChange(e.target.value || null);
+              const ok = await onModelChange(e.target.value || null);
+              setModelSaveState(ok ? "saved" : "error");
             } finally {
               setSavingModel(false);
             }
@@ -87,6 +112,7 @@ export default function SettingsPanel({
             </option>
           ))}
         </select>
+        <div className="mt-1 h-4"><SaveBadge state={modelSaveState} /></div>
       </section>
 
       <section>

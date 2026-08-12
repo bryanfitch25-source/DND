@@ -149,7 +149,11 @@ export default function CombatGrid({
               {selected.name}
               {selected.is_pc ? " (You)" : selected.is_companion ? " (Ally)" : ""}
             </span>
-            <button onClick={() => setSelectedId(null)} className="text-parchment/40 hover:text-parchment/80">
+            <button
+              onClick={() => setSelectedId(null)}
+              aria-label="Deselect combatant"
+              className="text-parchment/40 hover:text-parchment/80"
+            >
               ✕
             </button>
           </div>
