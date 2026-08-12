@@ -8,17 +8,83 @@ body {
 }
 
 body {
-  background-color: #12100d;
+  background-color: #0e0b12;
   color: #e8dfc8;
+  font-family: var(--font-body), serif;
+  /* Layered atmosphere: a faint violet glow rising from below (as if lit by
+     scarlight), a dark vignette at the edges, and a fine grain overlay for
+     texture/grit -- all pure CSS, no image assets. */
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(155, 140, 217, 0.06), transparent),
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(125, 31, 46, 0.05), transparent),
+    radial-gradient(ellipse 140% 140% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display), serif;
+  letter-spacing: 0.02em;
+}
+
+/* Fine grain overlay, fixed to the viewport so it doesn't scroll with content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1b1712;
+  background: #161119;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4a3f30;
+  background: #6b5637;
   border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b08d57;
+}
+
+::selection {
+  background: rgba(155, 140, 217, 0.35);
+  color: #f3ecd8;
+}
+
+/* Ornate section divider: a gold hairline fading at both ends with a small
+   rune-like glyph centered on it -- used to separate major panel sections
+   without resorting to plain <hr>-style flatness. */
+.ornate-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(176, 141, 87, 0.6);
+  margin: 0.75rem 0;
+}
+.ornate-divider::before,
+.ornate-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(176, 141, 87, 0.5), transparent);
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(30, 24, 34, 0.6), rgba(22, 17, 25, 0.6));
+  border: 1px solid rgba(176, 141, 87, 0.15);
+}
+
+/* iOS safe-area helpers for notch/home-indicator clearance on iPhone. */
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }

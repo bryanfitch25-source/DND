@@ -30,10 +30,10 @@ export default function LevelUpModal({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-ink border border-blood/40 rounded-lg p-6 max-w-sm w-full"
+        className="bg-ink-800 panel border-scarlight/40 rounded-lg p-6 max-w-sm w-full shadow-glow"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-serif text-parchment mb-2">Level Up Available</h2>
+        <h2 className="font-display text-lg text-scarlight-soft mb-2">⬆ Level Up Available</h2>
         <p className="text-sm text-parchment/70 mb-4">
           {character.name} has earned enough XP ({character.xp}) to reach level {targetLevel}, up from level{" "}
           {character.level}. The DM will walk you through the new features, hit points, and any spell/ability
@@ -53,7 +53,7 @@ export default function LevelUpModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="px-4 py-2 rounded bg-blood hover:bg-blood/80 disabled:opacity-40 text-parchment text-sm font-medium"
+            className="px-4 py-2 rounded bg-scarlight-dim hover:bg-scarlight/40 border border-scarlight/50 disabled:opacity-40 text-parchment text-sm font-medium shadow-glow"
           >
             {isLoading ? "Leveling up…" : `Level Up to ${targetLevel}`}
           </button>

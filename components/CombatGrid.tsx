@@ -12,9 +12,9 @@ function initials(name: string): string {
 
 function tokenColor(c: CombatParticipant): string {
   if (c.is_defeated) return "bg-black/40 text-parchment/30 border-white/10";
-  if (c.is_pc) return "bg-blood text-parchment border-blood/60";
-  if (c.is_companion) return "bg-sky-800 text-parchment border-sky-500/60";
-  return "bg-zinc-700 text-parchment border-zinc-400/40";
+  if (c.is_pc) return "bg-blood text-parchment border-blood-light/60 shadow-glow-blood";
+  if (c.is_companion) return "bg-gold-dim text-parchment border-gold/60 shadow-glow-gold";
+  return "bg-zinc-800 text-parchment border-zinc-500/40";
 }
 
 function terrainStyle(type: TerrainMarker["type"]): string {
@@ -75,7 +75,7 @@ export default function CombatGrid({
   }, [canShowRange, selected, rangeSquares, width, height]);
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/30 p-2">
+    <div className="panel rounded-lg p-2 w-full md:w-auto">
       <div className="overflow-auto">
         <div
           className="relative"
@@ -93,7 +93,7 @@ export default function CombatGrid({
               return (
                 <div
                   key={key}
-                  className="absolute bg-green-500/10 border border-green-500/20"
+                  className="absolute bg-scarlight/10 border border-scarlight/25"
                   style={{ width: CELL_SIZE, height: CELL_SIZE, left: gx * CELL_SIZE, top: gy * CELL_SIZE }}
                 />
               );
@@ -143,7 +143,7 @@ export default function CombatGrid({
       </div>
 
       {selected && (
-        <div className="mt-2 rounded-md border border-white/10 bg-black/40 p-2 text-xs">
+        <div className="mt-2 rounded-md border border-gold/20 bg-ink-900/60 p-2 text-xs">
           <div className="flex items-center justify-between mb-1">
             <span className="font-semibold text-parchment">
               {selected.name}
@@ -161,7 +161,7 @@ export default function CombatGrid({
             {selected.is_defeated && <span className="text-parchment/40 uppercase">down</span>}
           </div>
           {safeParseArray(selected.conditions).length > 0 && (
-            <div className="mt-1 text-blood/90">{safeParseArray(selected.conditions).join(", ")}</div>
+            <div className="mt-1 text-blood-light/90">{safeParseArray(selected.conditions).join(", ")}</div>
           )}
           {selected.notes && <div className="mt-1 text-parchment/50 italic">{selected.notes}</div>}
         </div>

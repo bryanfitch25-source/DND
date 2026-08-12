@@ -11,6 +11,8 @@ import JournalPanel from "@/components/JournalPanel";
 import WorldAtlas from "@/components/WorldAtlas";
 import SettingsPanel from "@/components/SettingsPanel";
 import LevelUpModal from "@/components/LevelUpModal";
+import Drawer from "@/components/Drawer";
+import { IconShield, IconScroll, IconFlame, IconBook, IconMap, IconGear } from "@/components/Icons";
 import { levelForXp } from "@/lib/dnd";
 import type { NarrativeLogEntry, TurnResponse } from "@/types";
 
@@ -21,11 +23,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 type View = "story" | "journal" | "map" | "settings";
 
-const TABS: Array<{ key: View; label: string }> = [
-  { key: "story", label: "Story" },
-  { key: "journal", label: "Journal" },
-  { key: "map", label: "Atlas" },
-  { key: "settings", label: "Settings" },
+const TABS: Array<{ key: View; label: string; Icon: typeof IconFlame }> = [
+  { key: "story", label: "Story", Icon: IconFlame },
+  { key: "journal", label: "Journal", Icon: IconBook },
+  { key: "map", label: "Atlas", Icon: IconMap },
+  { key: "settings", label: "Settings", Icon: IconGear },
 ];
 
 export default function Home() {
@@ -39,6 +41,8 @@ export default function Home() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpLoading, setLevelUpLoading] = useState(false);
   const [levelUpDiff, setLevelUpDiff] = useState<string | null>(null);
+  const [charDrawerOpen, setCharDrawerOpen] = useState(false);
+  const [questDrawerOpen, setQuestDrawerOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   async function loadState() {
@@ -63,7 +67,7 @@ export default function Home() {
   }, []);
 
   // Keyboard shortcuts: "/" focuses the story input (unless already typing
-  // somewhere), "Esc" is handled locally by modals that need it.
+  // somewhere), "Esc" is handled locally by modals/drawers that need it.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
@@ -185,16 +189,14 @@ export default function Home() {
     setLevelUpLoading(false);
     setShowLevelUp(false);
     if (result?.character && result.character.level > prevLevel) {
-      setLevelUpDiff(
-        `Leveled up to ${result.character.level}! Max HP now ${result.character.hp_max}.`
-      );
+      setLevelUpDiff(`Leveled up to ${result.character.level}! Max HP now ${result.character.hp_max}.`);
       setTimeout(() => setLevelUpDiff(null), 8000);
     }
   }
 
   if (initializing) {
     return (
-      <main className="h-screen flex items-center justify-center text-parchment/60 text-sm">
+      <main className="h-screen flex items-center justify-center text-parchment/60 text-sm font-display tracking-widest uppercase">
         Loading campaign…
       </main>
     );
@@ -213,19 +215,37 @@ export default function Home() {
   const eligibleLevel = character ? levelForXp(character.xp) : 0;
   const canLevelUp = !!character && eligibleLevel > character.level;
 
+  const questSidebar = (
+    <>
+      <QuestLog quests={quests} />
+      <CompanionRoster companions={companions} />
+      <RollHistory rolls={recentRolls} />
+    </>
+  );
+
   return (
-    <main className="h-screen grid grid-rows-[auto_1fr] bg-ink">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/30">
-        <div className="flex items-center gap-4">
-          <span className="font-serif text-sm tracking-wide text-parchment">SoloDM — {state?.campaign.name}</span>
-          <nav className="flex gap-1">
+    <main className="h-[100dvh] grid grid-rows-[auto_1fr_auto] md:grid-rows-[auto_1fr] bg-ink-900">
+      <header className="flex items-center justify-between gap-2 px-3 md:px-4 py-2 pt-safe border-b border-gold/15 bg-ink-800/80 backdrop-blur">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => setCharDrawerOpen(true)}
+            className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-gold/25 text-gold-bright"
+            aria-label="Open character sheet"
+          >
+            <IconShield className="w-5 h-5" />
+          </button>
+          <span className="font-display text-sm md:text-base tracking-wide text-parchment truncate">
+            <span className="text-gold-bright">SoloDM</span>
+            <span className="hidden sm:inline"> — {state?.campaign.name}</span>
+          </span>
+          <nav className="hidden md:flex gap-1 ml-2">
             {TABS.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setView(t.key)}
-                className={`text-xs px-2.5 py-1 rounded ${
+                className={`text-xs px-2.5 py-1 rounded transition-colors ${
                   view === t.key
-                    ? "bg-blood/40 text-parchment"
+                    ? "bg-blood/40 text-parchment shadow-glow-blood"
                     : "text-parchment/50 hover:text-parchment hover:bg-white/5"
                 }`}
               >
@@ -234,22 +254,32 @@ export default function Home() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {canLevelUp && (
             <button
               onClick={() => setShowLevelUp(true)}
-              className="text-xs px-2 py-0.5 rounded bg-green-800/60 hover:bg-green-700/60 text-parchment animate-pulse"
+              className="text-xs px-2 py-1 rounded border border-scarlight/50 text-scarlight-soft shadow-glow animate-pulse"
             >
-              ⬆ Level Up Available
+              <span className="hidden sm:inline">⬆ Level Up Available</span>
+              <span className="sm:hidden">⬆</span>
             </button>
           )}
-          <span className="text-xs px-2 py-0.5 rounded bg-blood/30 text-parchment/80">{statusLabel}</span>
+          <span className="hidden sm:inline-block text-xs px-2 py-0.5 rounded bg-blood/25 text-parchment/80 border border-blood/30">
+            {statusLabel}
+          </span>
+          <button
+            onClick={() => setQuestDrawerOpen(true)}
+            className="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-gold/25 text-gold-bright"
+            aria-label="Open quest log"
+          >
+            <IconScroll className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-[280px_1fr_280px] overflow-hidden">
-        {/* Left: Character sheet */}
-        <aside className="border-r border-white/10 bg-black/20 overflow-y-auto">
+      <div className="grid md:grid-cols-[280px_1fr_280px] overflow-hidden">
+        {/* Left: Character sheet (desktop static, mobile drawer) */}
+        <aside className="hidden md:block border-r border-gold/10 bg-ink-800/60 overflow-y-auto">
           <CharacterSheet character={character} inventory={inventory} />
         </aside>
 
@@ -258,13 +288,13 @@ export default function Home() {
           {view === "story" && (
             <>
               {activeEncounter && (
-                <div className="px-6 pt-4">
+                <div className="px-3 md:px-6 pt-3 md:pt-4">
                   <CombatView encounter={activeEncounter} combatants={combatants} character={character} />
                 </div>
               )}
               {levelUpDiff && (
-                <div className="px-6 pt-3">
-                  <div className="rounded-lg border border-green-700/40 bg-green-900/20 px-3 py-2 text-xs text-parchment/90">
+                <div className="px-3 md:px-6 pt-3">
+                  <div className="rounded-lg border border-scarlight/40 bg-scarlight-dim/20 px-3 py-2 text-xs text-parchment/90 shadow-glow">
                     {levelUpDiff}
                   </div>
                 </div>
@@ -296,15 +326,34 @@ export default function Home() {
           )}
         </section>
 
-        {/* Right: quests, companions, roll history */}
-        <aside className="border-l border-white/10 bg-black/20 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <QuestLog quests={quests} />
-            <CompanionRoster companions={companions} />
-          </div>
-          <RollHistory rolls={recentRolls} />
+        {/* Right: quests, companions, roll history (desktop static, mobile drawer) */}
+        <aside className="hidden md:flex border-l border-gold/10 bg-ink-800/60 flex-col overflow-y-auto">
+          {questSidebar}
         </aside>
       </div>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden flex items-stretch justify-around border-t border-gold/15 bg-ink-800/90 backdrop-blur pb-safe">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setView(t.key)}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] uppercase tracking-wide transition-colors ${
+              view === t.key ? "text-scarlight-soft" : "text-parchment/40"
+            }`}
+          >
+            <t.Icon className="w-5 h-5" />
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <Drawer open={charDrawerOpen} onClose={() => setCharDrawerOpen(false)} side="left" title="Character">
+        <CharacterSheet character={character} inventory={inventory} />
+      </Drawer>
+      <Drawer open={questDrawerOpen} onClose={() => setQuestDrawerOpen(false)} side="right" title="Quests & Party">
+        {questSidebar}
+      </Drawer>
 
       {showLevelUp && character && (
         <LevelUpModal

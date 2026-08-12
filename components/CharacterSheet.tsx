@@ -24,7 +24,7 @@ export default function CharacterSheet({
   if (!character) {
     return (
       <div className="p-4 text-sm text-parchment/60">
-        <h2 className="text-lg font-serif mb-2 text-parchment">Character</h2>
+        <h2 className="font-display text-lg mb-2 text-gold-bright">Character</h2>
         <p>No character yet. Describe who you want to play in the story panel to begin creation.</p>
       </div>
     );
@@ -53,7 +53,7 @@ export default function CharacterSheet({
 
   return (
     <div className="p-4 text-sm overflow-y-auto h-full">
-      <h2 className="text-lg font-serif text-parchment mb-1">{character.name}</h2>
+      <h2 className="font-display text-lg text-parchment mb-1">{character.name}</h2>
       <p className="text-parchment/60 mb-3">
         Level {character.level} {character.race} {character.class}
         {character.background ? ` · ${character.background}` : ""}
@@ -67,9 +67,9 @@ export default function CharacterSheet({
           </span>
           <span>AC {character.ac}</span>
         </div>
-        <div className="h-2 bg-black/40 rounded overflow-hidden">
+        <div className="h-2 bg-ink-900/60 rounded overflow-hidden border border-black/40">
           <div
-            className={`h-full ${hpPct > 50 ? "bg-green-700" : hpPct > 20 ? "bg-yellow-600" : "bg-blood"}`}
+            className={`h-full transition-all ${hpPct > 50 ? "bg-green-700" : hpPct > 20 ? "bg-yellow-600" : "bg-blood shadow-glow-blood"}`}
             style={{ width: `${hpPct}%` }}
           />
         </div>
@@ -80,7 +80,7 @@ export default function CharacterSheet({
       </div>
 
       {character.is_dead ? (
-        <div className="mb-3 text-blood font-semibold">DECEASED</div>
+        <div className="mb-3 text-blood-light font-semibold">DECEASED</div>
       ) : character.hp_current <= 0 ? (
         <div className="mb-3 text-xs">
           Death saves — Successes: {"●".repeat(character.death_save_successes)}
@@ -95,7 +95,7 @@ export default function CharacterSheet({
         <div className="mb-3">
           <div className="grid grid-cols-3 gap-2 mb-2">
             {ABILITIES.map(({ key, label }) => (
-              <div key={key} className="bg-black/30 rounded p-2 text-center">
+              <div key={key} className="panel rounded p-2 text-center">
                 <div className="text-[10px] text-parchment/50">{label}</div>
                 <div className="font-semibold">{character[key] as number}</div>
                 <div className="text-xs text-parchment/60">{fmtMod(abilityMod(character[key] as number))}</div>
@@ -108,7 +108,7 @@ export default function CharacterSheet({
               const mod = abilityMod(character[key] as number) + (prof ? character.proficiency_bonus : 0);
               return (
                 <div key={key} className={`flex items-center gap-1 ${prof ? "text-parchment" : "text-parchment/50"}`}>
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${prof ? "bg-blood" : "bg-white/20"}`} />
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${prof ? "bg-gold shadow-glow-gold" : "bg-white/20"}`} />
                   {label} {fmtMod(mod)}
                 </div>
               );
@@ -123,10 +123,10 @@ export default function CharacterSheet({
 
       {conditions.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs uppercase text-parchment/50 mb-1">Conditions</div>
+          <div className="text-xs uppercase tracking-wide text-parchment/50 mb-1">Conditions</div>
           <div className="flex flex-wrap gap-1">
             {conditions.map((c, i) => (
-              <span key={i} className="px-2 py-0.5 bg-blood/40 rounded text-xs">
+              <span key={i} className="px-2 py-0.5 bg-blood/40 border border-blood-light/30 rounded text-xs">
                 {c}
               </span>
             ))}
@@ -141,9 +141,9 @@ export default function CharacterSheet({
             const prof = skillProfs.has(key);
             const mod = abilityMod(character[ability] as number) + (prof ? character.proficiency_bonus : 0);
             return (
-              <div key={key} className={`flex items-center justify-between px-1 py-0.5 rounded ${prof ? "bg-black/20" : ""}`}>
+              <div key={key} className={`flex items-center justify-between px-1 py-0.5 rounded ${prof ? "bg-ink-700/50" : ""}`}>
                 <span className={`flex items-center gap-1 ${prof ? "text-parchment" : "text-parchment/50"}`}>
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${prof ? "bg-blood" : "bg-white/20"}`} />
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${prof ? "bg-gold shadow-glow-gold" : "bg-white/20"}`} />
                   {label}
                   <span className="text-[9px] uppercase text-parchment/30">({ability})</span>
                 </span>
@@ -158,15 +158,15 @@ export default function CharacterSheet({
       {open.attacks && (
         <div className="mb-3 text-xs">
           <div className="grid grid-cols-3 gap-1 mb-2 text-center">
-            <div className="bg-black/30 rounded p-1.5">
+            <div className="panel rounded p-1.5">
               <div className="text-[9px] text-parchment/50">MELEE</div>
               <div className="font-semibold">{fmtMod(meleeBonus)}</div>
             </div>
-            <div className="bg-black/30 rounded p-1.5">
+            <div className="panel rounded p-1.5">
               <div className="text-[9px] text-parchment/50">FINESSE</div>
               <div className="font-semibold">{fmtMod(finesseBonus)}</div>
             </div>
-            <div className="bg-black/30 rounded p-1.5">
+            <div className="panel rounded p-1.5">
               <div className="text-[9px] text-parchment/50">RANGED</div>
               <div className="font-semibold">{fmtMod(rangedBonus)}</div>
             </div>
@@ -194,7 +194,10 @@ export default function CharacterSheet({
               {hasSlots && (
                 <div className="flex flex-wrap gap-2 text-xs mb-2">
                   {Object.entries(spellSlots).map(([lvl, s]) => (
-                    <span key={lvl} className="px-2 py-0.5 bg-black/30 rounded">
+                    <span
+                      key={lvl}
+                      className="px-2 py-0.5 rounded bg-scarlight-dim/30 border border-scarlight/30 text-scarlight-soft shadow-glow"
+                    >
                       Lv{lvl}: {s.current}/{s.max}
                     </span>
                   ))}
@@ -203,7 +206,7 @@ export default function CharacterSheet({
               {knownSpells.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {knownSpells.map((s, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-black/20 rounded text-xs">
+                    <span key={i} className="px-2 py-0.5 bg-ink-700/60 rounded text-xs text-scarlight-soft/90">
                       {s}
                     </span>
                   ))}
@@ -216,7 +219,7 @@ export default function CharacterSheet({
 
       {features.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs uppercase text-parchment/50 mb-1">Features</div>
+          <div className="text-xs uppercase tracking-wide text-parchment/50 mb-1">Features</div>
           <ul className="space-y-1 text-xs text-parchment/70">
             {features.map((f, i) => (
               <li key={i}>{f}</li>
@@ -253,7 +256,7 @@ function SectionHeader({ label, open, onToggle }: { label: string; open: boolean
   return (
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between text-xs uppercase text-parchment/50 mb-1 hover:text-parchment/80"
+      className="w-full flex items-center justify-between text-[11px] uppercase tracking-widest text-gold/80 hover:text-gold-bright mb-1.5 pb-1 border-b border-gold/15"
     >
       <span>{label}</span>
       <span>{open ? "−" : "+"}</span>

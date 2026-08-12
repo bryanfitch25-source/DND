@@ -55,25 +55,25 @@ export default function WorldAtlas({ worldFacts }: { worldFacts: WorldFact[] }) 
   if (worldFacts.length === 0) {
     return (
       <div className="p-6 text-sm text-parchment/50">
-        No NPCs, locations, or factions discovered yet. They'll appear here as the DM establishes them.
+        No NPCs, locations, or factions discovered yet. They&apos;ll appear here as the DM establishes them.
       </div>
     );
   }
 
   return (
-    <div className="p-6 h-full overflow-y-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-serif text-parchment">World Atlas</h2>
+    <div className="p-4 md:p-6 h-full overflow-y-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+        <h2 className="font-display text-lg text-gold-bright">World Atlas</h2>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search the world…"
-          className="rounded bg-black/40 border border-white/10 px-3 py-1.5 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-blood w-64"
+          className="rounded bg-ink-900/60 border border-gold/20 px-3 py-1.5 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-gold w-full sm:w-64"
         />
       </div>
 
       {linkedTo && (
-        <div className="mb-4 rounded-lg border border-blood/40 bg-blood/10 p-3">
+        <div className="mb-4 rounded-lg border border-scarlight/40 bg-scarlight-dim/15 p-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-parchment">Related to &ldquo;{linkedTo.title}&rdquo;</span>
             <button onClick={() => setLinkedTo(null)} className="text-parchment/40 hover:text-parchment/80 text-xs">
@@ -85,7 +85,7 @@ export default function WorldAtlas({ worldFacts }: { worldFacts: WorldFact[] }) 
           ) : (
             <div className="flex flex-wrap gap-2">
               {related.map((r) => (
-                <span key={r.id} className="text-xs px-2 py-1 bg-black/30 rounded">
+                <span key={r.id} className="text-xs px-2 py-1 bg-ink-900/50 rounded">
                   {r.title} <span className="text-parchment/40">({CATEGORY_LABEL[r.category] || r.category})</span>
                 </span>
               ))}
@@ -96,15 +96,15 @@ export default function WorldAtlas({ worldFacts }: { worldFacts: WorldFact[] }) 
 
       {CATEGORY_ORDER.filter((cat) => byCategory[cat]?.length).map((category) => (
         <div key={category} className="mb-6">
-          <h3 className="text-sm uppercase tracking-wide text-parchment/50 mb-2">
+          <h3 className="text-xs uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
             {CATEGORY_LABEL[category] || category}
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {byCategory[category].map((f) => (
               <button
                 key={f.id}
                 onClick={() => setLinkedTo(f)}
-                className="text-left bg-black/30 hover:bg-black/40 rounded-lg p-3 transition-colors"
+                className="text-left panel hover:border-gold/30 rounded-lg p-3 transition-colors"
               >
                 <div className="font-medium text-sm text-parchment mb-1">{f.title}</div>
                 <p className="text-xs text-parchment/60 line-clamp-3">{f.content}</p>

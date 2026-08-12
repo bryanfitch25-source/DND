@@ -28,16 +28,18 @@ export default function SettingsPanel({
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
 
   return (
-    <div className="p-6 h-full overflow-y-auto max-w-xl mx-auto space-y-8">
-      <h2 className="text-lg font-serif text-parchment">Settings</h2>
+    <div className="p-4 md:p-6 h-full overflow-y-auto max-w-xl mx-auto space-y-8">
+      <h2 className="font-display text-lg text-gold-bright">Settings</h2>
 
       <section>
-        <h3 className="text-xs uppercase text-parchment/50 mb-2">Campaign Name</h3>
+        <h3 className="text-xs uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
+          Campaign Name
+        </h3>
         <div className="flex gap-2">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="flex-1 rounded bg-black/40 border border-white/10 px-3 py-2 text-sm text-parchment focus:outline-none focus:ring-1 focus:ring-blood"
+            className="flex-1 rounded bg-ink-900/60 border border-gold/20 px-3 py-2 text-sm text-parchment focus:outline-none focus:ring-1 focus:ring-gold"
           />
           <button
             disabled={savingName || !name.trim() || name === campaign.name}
@@ -49,7 +51,7 @@ export default function SettingsPanel({
                 setSavingName(false);
               }
             }}
-            className="px-3 py-2 rounded bg-blood hover:bg-blood/80 disabled:opacity-40 text-parchment text-sm"
+            className="px-3 py-2 rounded bg-blood hover:bg-blood-light disabled:opacity-40 text-parchment text-sm"
           >
             Save
           </button>
@@ -57,7 +59,9 @@ export default function SettingsPanel({
       </section>
 
       <section>
-        <h3 className="text-xs uppercase text-parchment/50 mb-2">DM Model</h3>
+        <h3 className="text-xs uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
+          DM Model
+        </h3>
         <p className="text-xs text-parchment/50 mb-2">
           The Claude API is billed per token. This campaign defaults to Haiku to keep cost down — a
           character-creation turn (several tool calls at once) measured about $0.16 on Sonnet; ordinary
@@ -75,7 +79,7 @@ export default function SettingsPanel({
               setSavingModel(false);
             }
           }}
-          className="w-full rounded bg-black/40 border border-white/10 px-3 py-2 text-sm text-parchment focus:outline-none focus:ring-1 focus:ring-blood"
+          className="w-full rounded bg-ink-900/60 border border-gold/20 px-3 py-2 text-sm text-parchment focus:outline-none focus:ring-1 focus:ring-gold"
         >
           {MODEL_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -86,7 +90,9 @@ export default function SettingsPanel({
       </section>
 
       <section>
-        <h3 className="text-xs uppercase text-parchment/50 mb-2">Rolling Summary</h3>
+        <h3 className="text-xs uppercase tracking-widest text-gold/70 mb-2 pb-1 border-b border-gold/15">
+          Rolling Summary
+        </h3>
         <p className="text-xs text-parchment/50 mb-2">
           The campaign's context is periodically compressed into a rolling summary so long campaigns stay
           within the model's context window (see the Journal tab). Force it to refresh now if you want it
@@ -104,22 +110,24 @@ export default function SettingsPanel({
               setSummarizing(false);
             }
           }}
-          className="px-3 py-2 rounded bg-black/40 border border-white/10 hover:border-white/30 disabled:opacity-40 text-parchment text-sm"
+          className="px-3 py-2 rounded bg-ink-900/60 border border-gold/20 hover:border-gold/50 disabled:opacity-40 text-parchment text-sm"
         >
           {summarizing ? "Summarizing…" : "Regenerate Summary Now"}
         </button>
         {summaryResult && (
-          <div className="mt-2 text-xs text-parchment/60 bg-black/30 rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <div className="mt-2 text-xs text-parchment/60 bg-ink-900/50 rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto">
             {summaryResult}
           </div>
         )}
       </section>
 
       <section>
-        <h3 className="text-xs uppercase text-parchment/50 mb-2">Danger Zone</h3>
+        <h3 className="text-xs uppercase tracking-widest text-blood-light/80 mb-2 pb-1 border-b border-blood/20">
+          Danger Zone
+        </h3>
         <button
           onClick={onNewCampaign}
-          className="px-3 py-2 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 text-sm"
+          className="px-3 py-2 rounded border border-blood/40 text-blood-light/90 hover:bg-blood/10 text-sm"
         >
           Start a New Campaign
         </button>

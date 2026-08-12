@@ -24,14 +24,16 @@ export default function CombatView({
   const active = combatants[encounter.current_turn_index];
 
   return (
-    <div className="border-2 border-blood bg-blood/10 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-serif text-blood tracking-wide">⚔ COMBAT — Round {encounter.round_number}</h2>
+    <div className="border-2 border-blood/70 bg-blood/10 rounded-lg p-3 md:p-4 mb-4 shadow-glow-blood">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+        <h2 className="font-display text-base md:text-lg text-blood-light tracking-wide">
+          ⚔ Combat — Round {encounter.round_number}
+        </h2>
         {encounter.description && <span className="text-xs text-parchment/60">{encounter.description}</span>}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto] gap-4 items-start">
-        <div className="space-y-1">
+      <div className="flex flex-col md:grid md:grid-cols-[1fr_auto] gap-4 items-start">
+        <div className="space-y-1 w-full min-w-0">
           {combatants.map((c, idx) => {
             const isActive = idx === encounter.current_turn_index;
             const conditions = safeConditions(c.conditions);
@@ -39,30 +41,30 @@ export default function CombatView({
             return (
               <div
                 key={c.id}
-                className={`flex items-center gap-3 rounded px-2 py-1.5 ${
-                  isActive ? "bg-blood/40 ring-1 ring-blood" : "bg-black/30"
+                className={`flex items-center gap-2 md:gap-3 rounded px-2 py-1.5 text-xs md:text-sm ${
+                  isActive ? "bg-blood/40 ring-1 ring-blood" : "bg-ink-900/40"
                 } ${c.is_defeated ? "opacity-40" : ""}`}
               >
-                <span className="w-6 text-right text-xs text-parchment/50">{c.initiative}</span>
-                <span className="w-40 truncate text-sm">
+                <span className="w-5 text-right text-[10px] md:text-xs text-parchment/50 shrink-0">{c.initiative}</span>
+                <span className="flex-1 min-w-0 truncate">
                   {isActive ? "▶ " : ""}
                   {c.name}
                   {c.is_pc ? " (You)" : c.is_companion ? " (Ally)" : ""}
                 </span>
-                <div className="flex-1 h-2 bg-black/40 rounded overflow-hidden max-w-[140px]">
+                <div className="hidden sm:block w-16 md:w-24 h-2 bg-ink-900/60 rounded overflow-hidden shrink-0 border border-black/40">
                   <div
                     className={`h-full ${hpPct > 50 ? "bg-green-700" : hpPct > 20 ? "bg-yellow-600" : "bg-blood"}`}
                     style={{ width: `${hpPct}%` }}
                   />
                 </div>
-                <span className="text-xs w-16 text-parchment/70">
-                  {c.hp_current}/{c.hp_max} HP
+                <span className="text-[10px] md:text-xs text-parchment/70 shrink-0">
+                  {c.hp_current}/{c.hp_max}
                 </span>
-                <span className="text-xs w-10 text-parchment/50">AC {c.ac}</span>
+                <span className="hidden sm:inline text-[10px] md:text-xs text-parchment/50 shrink-0">AC {c.ac}</span>
                 {conditions.length > 0 && (
-                  <span className="text-[10px] text-blood/90">{conditions.join(", ")}</span>
+                  <span className="hidden md:inline text-[10px] text-blood-light/90 shrink-0">{conditions.join(", ")}</span>
                 )}
-                {c.is_defeated ? <span className="text-[10px] uppercase text-parchment/40">down</span> : null}
+                {c.is_defeated ? <span className="text-[10px] uppercase text-parchment/40 shrink-0">down</span> : null}
               </div>
             );
           })}
@@ -72,7 +74,7 @@ export default function CombatView({
 
       {active && (
         <p className="text-xs text-parchment/60 mt-2">
-          Current turn: <span className="font-medium">{active.name}</span>
+          Current turn: <span className="font-medium text-scarlight-soft">{active.name}</span>
         </p>
       )}
     </div>

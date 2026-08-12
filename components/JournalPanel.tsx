@@ -13,13 +13,13 @@ export default function JournalPanel({ entries, summary }: { entries: NarrativeL
   }, [entries, query]);
 
   return (
-    <div className="p-6 h-full overflow-y-auto max-w-3xl mx-auto">
-      <h2 className="text-lg font-serif text-parchment mb-4">Journal</h2>
+    <div className="p-4 md:p-6 h-full overflow-y-auto max-w-3xl mx-auto">
+      <h2 className="font-display text-lg text-gold-bright mb-4">Journal</h2>
 
       {summary && (
-        <div className="mb-6 rounded-lg border border-white/10 bg-black/30 p-4">
-          <h3 className="text-xs uppercase text-parchment/50 mb-2">Story So Far</h3>
-          <p className="text-sm text-parchment/80 whitespace-pre-wrap leading-relaxed">{summary}</p>
+        <div className="mb-6 panel rounded-lg p-4">
+          <h3 className="text-xs uppercase tracking-widest text-gold/70 mb-2">Story So Far</h3>
+          <p className="text-sm text-parchment/80 whitespace-pre-wrap leading-relaxed font-body">{summary}</p>
         </div>
       )}
 
@@ -27,7 +27,7 @@ export default function JournalPanel({ entries, summary }: { entries: NarrativeL
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search the full transcript…"
-        className="w-full mb-4 rounded bg-black/40 border border-white/10 px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-blood"
+        className="w-full mb-4 rounded bg-ink-900/60 border border-gold/20 px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-gold"
       />
 
       {entries.length === 0 ? (
@@ -40,8 +40,10 @@ export default function JournalPanel({ entries, summary }: { entries: NarrativeL
             <div key={e.id} className={e.role === "player" ? "text-right" : "text-left"}>
               <div className="text-[10px] text-parchment/30 mb-0.5">Turn {e.turn_number}</div>
               <div
-                className={`inline-block max-w-xl text-left rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm ${
-                  e.role === "player" ? "bg-blood/20 text-parchment" : "bg-black/30 text-parchment/90 font-serif"
+                className={`inline-block max-w-[90%] md:max-w-xl text-left rounded-lg px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm ${
+                  e.role === "player"
+                    ? "bg-blood/20 border border-blood-light/15 text-parchment"
+                    : "bg-ink-800/60 border-l-2 border-gold/25 text-parchment/90 font-body"
                 }`}
               >
                 {e.content}

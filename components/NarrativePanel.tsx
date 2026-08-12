@@ -39,11 +39,11 @@ export default function NarrativePanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4">
         {summary && !recapDismissed && (
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3 max-w-2xl">
+          <div className="panel rounded-lg p-3 max-w-2xl">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs uppercase text-parchment/50">Story So Far</span>
+              <span className="text-xs uppercase tracking-widest text-gold/70">Story So Far</span>
               <button
                 onClick={() => setRecapDismissed(true)}
                 className="text-parchment/40 hover:text-parchment/80 text-xs"
@@ -55,7 +55,7 @@ export default function NarrativePanel({
           </div>
         )}
         {entries.length === 0 && (
-          <div className="text-parchment/50 text-sm max-w-2xl">
+          <div className="text-parchment/50 text-sm max-w-2xl font-body">
             <p className="mb-2">
               Welcome to the Hollow Reach. Tell me who you want to play — describe a character concept,
               paste a finished build, or ask to build one step by step — and we&apos;ll begin.
@@ -65,10 +65,10 @@ export default function NarrativePanel({
         {entries.map((entry) => (
           <div key={entry.id} className={entry.role === "player" ? "text-right" : "text-left"}>
             <div
-              className={`inline-block max-w-2xl text-left rounded-lg px-4 py-2 whitespace-pre-wrap leading-relaxed ${
+              className={`inline-block max-w-[90%] md:max-w-2xl text-left rounded-lg px-3 md:px-4 py-2 whitespace-pre-wrap leading-relaxed text-sm md:text-base ${
                 entry.role === "player"
-                  ? "bg-blood/30 text-parchment"
-                  : "bg-black/30 text-parchment/90 font-serif"
+                  ? "bg-blood/30 border border-blood-light/20 text-parchment"
+                  : "bg-ink-800/70 border-l-2 border-gold/30 text-parchment/90 font-body"
               }`}
             >
               {entry.content}
@@ -77,7 +77,7 @@ export default function NarrativePanel({
         ))}
         {isLoading && (
           <div className="text-left">
-            <div className="inline-block rounded-lg px-4 py-2 bg-black/20 text-parchment/50 italic text-sm">
+            <div className="inline-block rounded-lg px-4 py-2 bg-ink-800/50 text-parchment/50 italic text-sm">
               The DM is thinking…
             </div>
           </div>
@@ -91,14 +91,14 @@ export default function NarrativePanel({
         )}
         {defeatOccurred && (
           <div className="text-center py-2">
-            <div className="inline-block px-4 py-2 rounded-lg border border-blood/60 bg-blood/20">
+            <div className="inline-block px-4 py-2 rounded-lg border border-blood/60 bg-blood/20 shadow-glow-blood">
               <p className="text-xs uppercase tracking-widest text-parchment/80">You were defeated — but you survived</p>
             </div>
           </div>
         )}
       </div>
 
-      <div className="border-t border-white/10 p-4 flex gap-2">
+      <div className="border-t border-gold/15 p-3 md:p-4 pb-safe flex gap-2">
         <textarea
           ref={inputRef}
           value={input}
@@ -114,12 +114,12 @@ export default function NarrativePanel({
           }
           rows={2}
           disabled={isLoading}
-          className="flex-1 resize-none rounded-md bg-black/40 border border-white/10 px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-blood disabled:opacity-50"
+          className="flex-1 resize-none rounded-md bg-ink-900/60 border border-gold/20 px-3 py-2.5 text-sm text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
         />
         <button
           onClick={submit}
           disabled={isLoading || !input.trim()}
-          className="px-4 py-2 rounded-md bg-blood hover:bg-blood/80 disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm font-medium self-end"
+          className="min-h-[44px] px-4 py-2 rounded-md bg-blood hover:bg-blood-light disabled:opacity-40 disabled:cursor-not-allowed text-parchment text-sm font-medium self-end shadow-glow-blood"
         >
           Send
         </button>

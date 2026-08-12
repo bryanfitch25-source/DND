@@ -1,5 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Cinzel, EB_Garamond } from "next/font/google";
 import "./globals.css";
+
+// Cinzel: Roman-inscription-derived serif, regal and slightly severe --
+// used for headings/titles. EB Garamond: an old-book text face, chosen over
+// more decorative medieval faces (Uncial Antiqua, IM Fell English) for
+// narrative body copy specifically because it stays legible at small sizes
+// on a phone screen, which a heavier blackletter/uncial face would not.
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" });
+const ebGaramond = EB_Garamond({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "SoloDM",
@@ -20,14 +29,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1b1712",
+  themeColor: "#0e0b12",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${cinzel.variable} ${ebGaramond.variable}`}>
       <body>{children}</body>
     </html>
   );
