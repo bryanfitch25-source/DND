@@ -56,6 +56,15 @@ export function IconMap({ className }: IconProps) {
   );
 }
 
+export function IconDie({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true" focusable="false">
+      <path d="M12 2.5l8.5 4.9v9.2L12 21.5l-8.5-4.9V7.4L12 2.5z" strokeLinejoin="round" />
+      <path d="M12 2.5v9m0 0L3.5 7.4M12 11.5l8.5-4.1M12 11.5v10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconGear({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true" focusable="false">

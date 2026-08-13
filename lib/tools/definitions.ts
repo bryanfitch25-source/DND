@@ -16,6 +16,11 @@ export interface ToolDefinition {
   name: string;
   description: string;
   input_schema: JsonSchema;
+  // Only ever set on the LAST entry in toolDefinitions -- see the bottom of
+  // this file. Marks a prompt-cache breakpoint so this fully-static tool
+  // list (never varies by campaign/turn) is billed at full price once per
+  // cache window instead of on every API call.
+  cache_control?: { type: "ephemeral" };
 }
 
 export const toolDefinitions: ToolDefinition[] = [
@@ -353,5 +358,6 @@ export const toolDefinitions: ToolDefinition[] = [
       type: "object",
       properties: {},
     },
+    cache_control: { type: "ephemeral" },
   },
 ];

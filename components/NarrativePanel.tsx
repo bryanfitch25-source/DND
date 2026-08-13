@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { NarrativeLogEntry } from "@/types";
+import DiceRoller from "./DiceRoller";
 
 const DEFAULT_QUICK_ACTIONS = ["Look around", "Check my inventory", "Rest here"];
 const COMBAT_QUICK_ACTIONS = ["Attack the nearest enemy", "Defend / hold position", "Try to flee"];
@@ -97,8 +98,8 @@ export default function NarrativePanel({
         {entries.length === 0 && (
           <div className="text-parchment/50 text-xl max-w-2xl font-body">
             <p className="mb-2">
-              Welcome to the Hollow Reach. Tell me who you want to play — describe a character concept,
-              paste a finished build, or ask to build one step by step — and we&apos;ll begin.
+              Tell me who you want to play — describe a character concept, paste a finished build, or ask
+              to build one step by step — and we&apos;ll begin.
             </p>
           </div>
         )}
@@ -185,6 +186,7 @@ export default function NarrativePanel({
           disabled={isLoading}
           className="flex-1 resize-none rounded-md bg-ink-900/60 border border-gold/20 px-3 py-2.5 text-xl text-parchment placeholder:text-parchment/30 focus:outline-none focus:ring-1 focus:ring-gold disabled:opacity-50"
         />
+        <DiceRoller onInsert={(text) => setInput((prev) => (prev ? `${prev} ${text}` : text))} />
         <button
           onClick={() => submit()}
           disabled={isLoading || !input.trim()}

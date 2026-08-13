@@ -35,7 +35,13 @@ export async function buildMessages(campaignId: number, playerInput: string): Pr
     });
   }
 
-  messages.push({ role: "user", content: playerInput });
+  // cache_control here doesn't help across different turns (playerInput is
+  // different every time), but it does mark everything up through this
+  // point as a cache breakpoint for the CURRENT turn's tool-use loop: a
+  // turn that needs several tool round-trips (see app/api/turn/route.ts)
+  // resends this whole array on every iteration, and this lets Anthropic
+  // serve the repeated prefix from cache instead of rebilling it each time.
+  messages.push({ role: "user", content: [{ type: "text", text: playerInput, cache_control: { type: "ephemeral" } }] });
 
   return messages;
 }
