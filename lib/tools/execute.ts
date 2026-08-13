@@ -1,7 +1,7 @@
 import { rollDice } from "../dice";
 import * as q from "../db/queries";
 import { WORLD_FACT_SEARCH_LIMIT } from "../config";
-import type { Character } from "@/types";
+import { serializeCharacter } from "../dm/character";
 
 export interface ToolContext {
   campaignId: number;
@@ -14,29 +14,6 @@ export interface ToolExecutionResult {
   isError?: boolean;
   /** Set true if this tool call created the character (so the caller can pick up the new id). */
   createdCharacterId?: number;
-}
-
-async function serializeCharacter(character: Character | null) {
-  if (!character) return null;
-  const inventory = await q.getInventory(character.id);
-  return {
-    ...character,
-    saving_throw_proficiencies: safeParse(character.saving_throw_proficiencies, []),
-    skill_proficiencies: safeParse(character.skill_proficiencies, []),
-    conditions: safeParse(character.conditions, []),
-    spell_slots: safeParse(character.spell_slots, {}),
-    known_spells: safeParse(character.known_spells, []),
-    features: safeParse(character.features, []),
-    inventory,
-  };
-}
-
-function safeParse<T>(json: string, fallback: T): T {
-  try {
-    return JSON.parse(json);
-  } catch {
-    return fallback;
-  }
 }
 
 /**

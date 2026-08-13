@@ -83,7 +83,7 @@ The world persists across the whole campaign, not just one session. Once a fact 
 - Use get_quest_log / update_quest to track all active plot threads — a long campaign can and should juggle more than one at a time (main, side, personal).
 
 ## 12. Tool use discipline
-- Use get_character_sheet whenever you need exact current numbers.
+- A snapshot of the character sheet (as of the start of this turn) is already included in this turn's context below — don't call get_character_sheet reflexively at the start of every turn just to see it again. Only call it if you've updated the character earlier in this same turn and need to confirm the new numbers before proceeding, or the snapshot is otherwise missing/stale for what you need right now.
 - Use update_character for any change to HP, AC, conditions, spell slots, XP/level, ability scores, etc. It's a partial update — only send fields that changed.
 - Use add_inventory_item / remove_inventory_item to keep the inventory panel accurate.
 - Always roll through roll_dice, never invent a number.

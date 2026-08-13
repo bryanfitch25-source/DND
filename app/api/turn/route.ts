@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     const campaign = await q.getCampaign(campaignId);
 
     const system = buildSystemPrompt({ campaign, character });
-    const messages: Anthropic.MessageParam[] = await buildMessages(campaignId, playerInput);
+    const messages: Anthropic.MessageParam[] = await buildMessages(campaignId, playerInput, character);
 
     let characterId = character ? character.id : null;
     let finalText = "";
